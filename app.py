@@ -48,8 +48,7 @@ for key, default in {
     "show_nova_aut": False,
     "docx_bytes":    None,
     "docx_filename": "",
-    "current_page": "1. DA OCORRÊNCIA",
-    "vitimas":       [{"nome": "", "cad": "", "documento": "", "sexo": "", "data_nascimento": None, "filicao": "", "naturalidade": "",
+        "vitimas":       [{"nome": "", "cad": "", "documento": "", "sexo": "", "data_nascimento": None, "filicao": "", "naturalidade": "",
                        "vestes": "", "pertences": "", "localizacao": "", "posicao": "", "cabeca": "", "membros": "",
                        "fenomenos": "", "lesoes": [""]}],
 }.items():
@@ -624,19 +623,7 @@ _, main, _ = st.columns([0.04, 0.92, 0.04])
 
 # ── Sidebar Sincronização Mobile ──────────────────────────
 with st.sidebar:
-    st.markdown("## NAVEGAÇÃO")
-    paginas = [
-        "📂 Minhas Ocorrências",
-        "1. DA OCORRÊNCIA",
-        "2. DO LOCAL",
-        "3. DOS ENVOLVIDOS",
-        "4. DOS VESTÍGIOS",
-        "5. CONSIDERAÇÕES TÉCNICAS",
-        "6. DA CONCLUSÃO",
-        "7. ANEXOS",
-        "☁️ Sincronização e Rascunhos"
-    ]
-    st.session_state["current_page"] = st.radio("Ir para:", paginas, index=paginas.index(st.session_state["current_page"]), label_visibility="collapsed")
+    st.markdown("## AÇÕES DA OCORRÊNCIA")
     st.divider()
     st.markdown("<br><br><br>", unsafe_allow_html=True)
     if st.button("Gerar Prévia do Laudo", use_container_width=True, type="primary"):
@@ -673,7 +660,7 @@ with st.sidebar:
 GAS_URL = "https://script.google.com/macros/s/AKfycbx9N4hidxHbfAUUpHVDAOadZBF5SRB9x9UzC0nt3k-wW0pgLThCHwBQsaUMJjtcTL1QJw/exec"
 
 with main:
-    if st.session_state["current_page"] == "📂 Minhas Ocorrências":
+    with st.expander("📂 Ocorrências Salvas Localmente", expanded=False):
         st.markdown('<div class="section-title">📂 &nbsp; Minhas Ocorrências</div>', unsafe_allow_html=True)
         st.caption("Ocorrências sincronizadas do celular via Google Sheets e salvas no banco local.")
 
@@ -710,10 +697,100 @@ with main:
                         if "vitimas" in dados: st.session_state["vitimas"] = dados["vitimas"]
                         if "vestigios" in dados: st.session_state["vestigios"] = dados["vestigios"]
                         if "fotos" in dados: st.session_state["fotos"] = dados["fotos"]
-                        st.session_state["current_page"] = "1. DA OCORRÊNCIA"
                         st.rerun()
         else:
             st.info("Nenhuma ocorrência sincronizada encontrada na planilha do Google Drive.")
+
+    with st.expander("☁️ Sincronização com o App (Nuvem)", expanded=False):
+        st.markdown('<div class="section-title">☁️ &nbsp; Sincronização e Rascunhos de Ocorrências</div>', unsafe_allow_html=True)
+        
+        import sqlite3, json, os
+        DB_PATH = os.path.join(os.path.dirname(__file__), "banco_laudos.sqlite")
+        
+        col_left, col_right = st.columns([1, 1])
+        
+        with col_left:
+            with st.container(border=True):
+                st.subheader("🗄️ Ocorrências no Banco de Dados Local")
+                st.caption("Ocorrências salvas localmente pelo app web ou API.")
+                
+                db_laudos = []
+                if os.path.exists(DB_PATH):
+                    try:
+                        conn = sqlite3.connect(DB_PATH)
+                        conn.row_factory = sqlite3.Row
+                        c = conn.cursor()
+                        c.execute('SELECT id, mobile_id, data_sincronizacao, dados_json FROM laudos ORDER BY id DESC')
+                        rows = c.fetchall()
+                        conn.close()
+                        for r in rows:
+                            db_laudos.append({
+                                "id": r["id"],
+                                "mobile_id": r["mobile_id"],
+                                "data": r["data_sincronizacao"],
+                                "dados": json.loads(r["dados_json"])
+                            })
+                    except Exception as e:
+                        st.error(f"Erro ao acessar banco sqlite: {e}")
+                
+                if db_laudos:
+                    opcoes = {f"Ocorrência {l['dados'].get('ocorrencia', 'S/N')} — Perito: {l['dados'].get('perito', 'N/I')} ({l['data'][:16]})": l for l in db_laudos}
+                    escolhida_key = st.selectbox("Selecione a ocorrência salva:", list(opcoes.keys()))
+                    
+                    if escolhida_key:
+                        item = opcoes[escolhida_key]
+                        st.info(f"📍 Tipo: {item['dados'].get('tipo_local', 'N/I')} | Vítimas: {len(item['dados'].get('vitimas', []))} | Fotos: {len(item['dados'].get('fotos', []))}")
+                        
+                        if st.button("📥 CARREGAR ESTA OCORRÊNCIA NO LAUDO", type="primary", key="btn_load_sqlite", use_container_width=True):
+                            data_obj = item["dados"]
+                            for k, v in data_obj.items():
+                                if k not in ["vitimas", "vestigios", "fotos"]:
+                                    st.session_state[k] = v
+                            if "vitimas" in data_obj: st.session_state["vitimas"] = data_obj["vitimas"]
+                            if "vestigios" in data_obj: st.session_state["vestigios"] = data_obj["vestigios"]
+                            if "fotos" in data_obj: st.session_state["fotos"] = data_obj["fotos"]
+                            
+                            st.success("✅ Ocorrência carregada com sucesso no formulário!")
+                            st.rerun()
+                else:
+                    st.warning("Nenhuma ocorrência encontrada no banco de dados local ainda.")
+
+        with col_right:
+            with st.container(border=True):
+                st.subheader("📥 Importar Arquivo .JSON do Celular")
+                st.caption("Se você baixou o arquivo .json do celular clicando em 'Exportar Caso (.json)', selecione-o aqui.")
+                
+                json_file = st.file_uploader("Selecione o arquivo de ocorrência (.json)", type=["json"], key="uploader_json_sync_2")
+                if json_file:
+                    try:
+                        imported_json_data = json.load(json_file)
+                        st.success(f"Arquivo '{imported_json_data.get('ocorrencia', '')}' carregado!")
+                        
+                        if st.button("🚀 IMPORTAR DADOS DO ARQUIVO JSON", type="primary", key="btn_load_json_file", use_container_width=True):
+                            for k, v in imported_json_data.items():
+                                if k not in ["vitimas", "vestigios", "fotos"]:
+                                    st.session_state[k] = v
+                            if "vitimas" in imported_json_data: st.session_state["vitimas"] = imported_json_data["vitimas"]
+                            if "vestigios" in imported_json_data: st.session_state["vestigios"] = imported_json_data["vestigios"]
+                            if "fotos" in imported_json_data: st.session_state["fotos"] = imported_json_data["fotos"]
+                            
+                            # Also save to SQLite so it stays in the database
+                            try:
+                                conn = sqlite3.connect(DB_PATH)
+                                c = conn.cursor()
+                                mob_id = imported_json_data.get('ocorrencia', f"mob_{len(db_laudos)+1}")
+                                now_str = datetime.now().isoformat()
+                                c.execute('INSERT OR REPLACE INTO laudos (mobile_id, data_sincronizacao, dados_json) VALUES (?, ?, ?)',
+                                          (mob_id, now_str, json.dumps(imported_json_data)))
+                                conn.commit()
+                                conn.close()
+                            except Exception: pass
+                            
+                            st.success("✅ Ocorrência importada e salva no banco de dados!")
+                            st.rerun()
+                    except Exception as err:
+                        st.error(f"Erro ao ler arquivo: {err}")
+
 
     def sanitize_datetime_state():
         from datetime import datetime, date, time
@@ -734,7 +811,7 @@ with main:
 
     sanitize_datetime_state()
 
-    if st.session_state["current_page"] == "1. DA OCORRÊNCIA":
+    with st.container():
         # ══ SEÇÃO 1: DA OCORRÊNCIA ════════════════════════════
         st.markdown('<div class="section-title">📋 &nbsp; Da Ocorrência</div>', unsafe_allow_html=True)
         with st.container(border=True):
@@ -780,7 +857,7 @@ with main:
         investigado = cv1.text_area("Investigado(s)",  placeholder="Nomes dos investigados...", key="investigado", height=80)
         destino     = cv2.text_input("Unidade Destino", value="Delegacia de Homicídios de Imperatriz", key="destino")
 
-    if st.session_state["current_page"] == "2. DO LOCAL":
+    with st.container():
         # ══ SEÇÃO 2: DO LOCAL ════════════════════════════════
         st.markdown('<div class="section-title">📍 &nbsp; Do Local</div>', unsafe_allow_html=True)
         with st.container(border=True):
@@ -840,7 +917,7 @@ with main:
             autoridade_local = cq3.text_input("Autoridade no Local", placeholder="Nome da autoridade...", key="autoridade_local")
 
 
-    if st.session_state["current_page"] == "3. DOS ENVOLVIDOS":
+    with st.container():
 # ══ SEÇÃO: DAS VÍTIMAS (Item 3.3) ═════════════════════
         st.markdown('<div class="section-title">👥 &nbsp; Das Vítimas (Item 3.3)</div>', unsafe_allow_html=True)
         with st.container(border=True):
@@ -910,7 +987,7 @@ with main:
 
 
 
-    if st.session_state["current_page"] == "4. DOS VESTÍGIOS":
+    with st.container():
         st.markdown('<div class="section-title">🔍 &nbsp; Dos Vestígios</div>', unsafe_allow_html=True)
         with st.container(border=True):
             st.markdown('<span class="custom-border-marker"></span>', unsafe_allow_html=True)
@@ -1004,102 +1081,10 @@ with main:
                 st.rerun()
 
 
-    if st.session_state["current_page"] == "☁️ Sincronização e Rascunhos":
-        st.markdown('<div class="section-title">☁️ &nbsp; Sincronização e Rascunhos de Ocorrências</div>', unsafe_allow_html=True)
-        
-        import sqlite3, json, os
-        DB_PATH = os.path.join(os.path.dirname(__file__), "banco_laudos.sqlite")
-        
-        col_left, col_right = st.columns([1, 1])
-        
-        with col_left:
-            with st.container(border=True):
-                st.subheader("🗄️ Ocorrências no Banco de Dados Local")
-                st.caption("Ocorrências salvas localmente pelo app web ou API.")
-                
-                db_laudos = []
-                if os.path.exists(DB_PATH):
-                    try:
-                        conn = sqlite3.connect(DB_PATH)
-                        conn.row_factory = sqlite3.Row
-                        c = conn.cursor()
-                        c.execute('SELECT id, mobile_id, data_sincronizacao, dados_json FROM laudos ORDER BY id DESC')
-                        rows = c.fetchall()
-                        conn.close()
-                        for r in rows:
-                            db_laudos.append({
-                                "id": r["id"],
-                                "mobile_id": r["mobile_id"],
-                                "data": r["data_sincronizacao"],
-                                "dados": json.loads(r["dados_json"])
-                            })
-                    except Exception as e:
-                        st.error(f"Erro ao acessar banco sqlite: {e}")
-                
-                if db_laudos:
-                    opcoes = {f"Ocorrência {l['dados'].get('ocorrencia', 'S/N')} — Perito: {l['dados'].get('perito', 'N/I')} ({l['data'][:16]})": l for l in db_laudos}
-                    escolhida_key = st.selectbox("Selecione a ocorrência salva:", list(opcoes.keys()))
-                    
-                    if escolhida_key:
-                        item = opcoes[escolhida_key]
-                        st.info(f"📍 Tipo: {item['dados'].get('tipo_local', 'N/I')} | Vítimas: {len(item['dados'].get('vitimas', []))} | Fotos: {len(item['dados'].get('fotos', []))}")
-                        
-                        if st.button("📥 CARREGAR ESTA OCORRÊNCIA NO LAUDO", type="primary", key="btn_load_sqlite", use_container_width=True):
-                            data_obj = item["dados"]
-                            for k, v in data_obj.items():
-                                if k not in ["vitimas", "vestigios", "fotos"]:
-                                    st.session_state[k] = v
-                            if "vitimas" in data_obj: st.session_state["vitimas"] = data_obj["vitimas"]
-                            if "vestigios" in data_obj: st.session_state["vestigios"] = data_obj["vestigios"]
-                            if "fotos" in data_obj: st.session_state["fotos"] = data_obj["fotos"]
-                            
-                            st.success("✅ Ocorrência carregada com sucesso no formulário!")
-                            st.session_state["current_page"] = "1. DA OCORRÊNCIA"
-                            st.rerun()
-                else:
-                    st.warning("Nenhuma ocorrência encontrada no banco de dados local ainda.")
-
-        with col_right:
-            with st.container(border=True):
-                st.subheader("📥 Importar Arquivo .JSON do Celular")
-                st.caption("Se você baixou o arquivo .json do celular clicando em 'Exportar Caso (.json)', selecione-o aqui.")
-                
-                json_file = st.file_uploader("Selecione o arquivo de ocorrência (.json)", type=["json"], key="uploader_json_sync_2")
-                if json_file:
-                    try:
-                        imported_json_data = json.load(json_file)
-                        st.success(f"Arquivo '{imported_json_data.get('ocorrencia', '')}' carregado!")
-                        
-                        if st.button("🚀 IMPORTAR DADOS DO ARQUIVO JSON", type="primary", key="btn_load_json_file", use_container_width=True):
-                            for k, v in imported_json_data.items():
-                                if k not in ["vitimas", "vestigios", "fotos"]:
-                                    st.session_state[k] = v
-                            if "vitimas" in imported_json_data: st.session_state["vitimas"] = imported_json_data["vitimas"]
-                            if "vestigios" in imported_json_data: st.session_state["vestigios"] = imported_json_data["vestigios"]
-                            if "fotos" in imported_json_data: st.session_state["fotos"] = imported_json_data["fotos"]
-                            
-                            # Also save to SQLite so it stays in the database
-                            try:
-                                conn = sqlite3.connect(DB_PATH)
-                                c = conn.cursor()
-                                mob_id = imported_json_data.get('ocorrencia', f"mob_{len(db_laudos)+1}")
-                                now_str = datetime.now().isoformat()
-                                c.execute('INSERT OR REPLACE INTO laudos (mobile_id, data_sincronizacao, dados_json) VALUES (?, ?, ?)',
-                                          (mob_id, now_str, json.dumps(imported_json_data)))
-                                conn.commit()
-                                conn.close()
-                            except Exception: pass
-                            
-                            st.success("✅ Ocorrência importada e salva no banco de dados!")
-                            st.session_state["current_page"] = "1. DA OCORRÊNCIA"
-                            st.rerun()
-                    except Exception as err:
-                        st.error(f"Erro ao ler arquivo: {err}")
-
 
     # ══ BARRA DE AÇÕES (RODAPÉ) ══════════════════════════
     
-    if st.session_state["current_page"] == "5. CONSIDERAÇÕES TÉCNICAS":
+    with st.container():
         st.markdown('<div class="section-title">📝 &nbsp; 4. Considerações Técnicas</div>', unsafe_allow_html=True)
         with st.container(border=True):
             st.markdown('<span class="custom-border-marker"></span>', unsafe_allow_html=True)
