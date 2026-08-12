@@ -447,8 +447,7 @@ with main:
     with st.container():
         # ══ SEÇÃO 1: DA OCORRÊNCIA ════════════════════════════
         st.markdown('<div class="section-title">📋 &nbsp; Da Ocorrência</div>', unsafe_allow_html=True)
-        with st.container(border=True):
-            st.markdown('<span class="custom-border-marker"></span>', unsafe_allow_html=True)
+        with st.container():
 
             c1, c2, c3, c4 = st.columns(4)
             num_laudo  = c1.text_input("Nº do Laudo",         placeholder="0092258",    key="num_laudo")
