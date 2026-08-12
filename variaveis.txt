@@ -1,0 +1,34 @@
+Da Ocorrência
+
+num_laudo = valor livre
+ocorrencia = valor livre
+perito = valor livre
+autoridade = valores precadastrado, mas com possibilidade de adicionar novos
+requisicao = valor livre
+vitima = valor livre
+investigado = valor livre
+referencia = valor livre
+destino = valor livre, mas ofertar inicialmente "Delegacia de Homicídios de Imperatriz"
+data_pericia = deve ser escrito como o modelo: Aos 09 (nove) dia(s) do mês de janeiro do ano 2026 (dois mil e vinte e seis)
+data_pericia_simples = O valor de data_pericia no formato 09/01/2026
+horário = formato 13:30
+data atendimento = O valor de data_pericia no formato 09/01/2026
+horario_atendimento = formato 13:30
+
+Do Local
+
+endereço = valor livre
+latitude = campo livre mas já preencher a localização atual do dispositivo (adicionar um botão q permita atualiza com base na localização)
+longitude = campo livre mas já preencher a localização atual do dispositivo (adicionar um botão q permita atualiza com base na localização)
+ponto_referencia = campo livre
+área = campo livre
+pavimento = campo livre
+delimitações = campo livre
+isolamento = Preservado e Isolado / Parcialmente Preservado e Isolado / Preservado e Parcialmente Isolado / Não Preservado e Não Isolado /Outros 
+clima = aberto diurno / aberto noturno / nublado diurno / nublado noturno / chuvoso diurno /chuvoso noturno / outros
+visibilidade = Ampla / Reduzida
+Iluminacao = Natural Satisfatória / Natural Insatisfatória / Artificial Satisfatória / Artificial Insatisfatória
+Equipe_pm = Campo livre
+Equipe_pc = Campo livre
+autoridade_local =  Campo livre
+

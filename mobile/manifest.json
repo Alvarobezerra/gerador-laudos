@@ -1,0 +1,9 @@
+{
+    "name": "Laudo Offline",
+    "short_name": "Laudos",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#f1f5f9",
+    "theme_color": "#2563eb",
+    "description": "Ferramenta offline para coleta de dados de laudos periciais."
+}

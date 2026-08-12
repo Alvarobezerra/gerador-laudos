@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+banco_laudos.sqlite
+Laudo_Teste*.docx
+RESPOSTAS*.docx
+.vscode/

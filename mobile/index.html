@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Laudo — Local de Morte Violenta | ICRIM/NPT</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* DESIGN SYSTEM - LIGHT THEME (WHITE BACKGROUND) */
+    :root {
+      --bg-base:       #ffffff;
+      --bg-card:       #f8fafc;
+      --bg-card-hover: #f1f5f9;
+      --bg-input:      #ffffff;
+      --border:        #cbd5e1;
+      --border-focus:  #2563eb;
+      --text-primary:  #0f172a;
+      --text-secondary:#475569;
+      --text-muted:    #64748b;
+      --accent:        #2563eb;
+      --accent-hover:  #1d4ed8;
+      --danger:        #ef4444;
+      --success:       #10b981;
+      --radius:        12px;
+      --radius-sm:     8px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    html, body {
+      min-height: 100%;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      line-height: 1.5;
+    }
+    
+    .layout-wrapper {
+      display: block;
+      width: 100%;
+      min-height: 100vh;
+      background: #ffffff;
+    }
+    
+    .main-content {
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px 16px;
+    }
+    
+    .container { max-width: 100%; }
+    
+    .header-area { margin-bottom: 24px; text-align: center; }
+    .header-area h1 { font-size: 24px; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
+    .header-area p { color: var(--text-secondary); font-size: 14px; }
+
+    /* Cards */
+    .section-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    }
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-top: 0;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 8px;
+    }
+    
+    /* Grid & Forms */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group.full { grid-column: 1 / -1; }
+    label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+    input, select, textarea {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+    .input-group { display: flex; gap: 8px; }
+    .input-group select, .input-group input { flex: 1; }
+    
+    /* Buttons */
+    button, .btn-label {
+      background: var(--accent);
+      color: #fff;
+      border: 1px solid transparent;
+      padding: 10px 18px;
+      border-radius: var(--radius-sm);
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    button:hover, .btn-label:hover { background: var(--accent-hover); }
+    .btn-secondary { background: #e2e8f0; border: 1px solid #cbd5e1; color: #0f172a; }
+    .btn-secondary:hover { background: #cbd5e1; }
+    .btn-danger { background: #ef4444; color: white; border: none; }
+    .btn-danger:hover { background: #dc2626; }
+    
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 16px;
+      background: var(--bg-card);
+      padding: 20px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      align-items: center;
+    }
+    
+    .output-panel {
+      margin-top: 24px;
+      background: rgba(16, 185, 129, 0.05);
+      border: 1px solid var(--success);
+      border-radius: var(--radius);
+      padding: 24px;
+      display: none;
+    }
+    .output-panel.visible { display: block; }
+    .vars-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+    .var-item { background: #ffffff; border: 1px solid var(--border); padding: 10px 14px; border-radius: var(--radius-sm); display: flex; flex-direction: column; gap: 4px; }
+    .var-key { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); font-weight: 600; }
+    .var-value { font-size: 13px; font-weight: 500; word-break: break-word; color: #0f172a; }
+    
+    /* TOAST */
+    .toast {
+      position: fixed; bottom: 20px; left: 20px;
+      background: #0f172a; border: 1px solid #334155;
+      color: #ffffff; padding: 14px 20px;
+      border-radius: var(--radius-sm); box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      transform: translateY(150px); opacity: 0;
+      transition: all 0.3s ease;
+      z-index: 99999; font-weight: 500; display: flex; align-items: center; gap: 10px;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    
+    /* FAB Mobile */
+    .fab {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 56px;
+      height: 56px;
+      border-radius: 28px;
+      font-size: 24px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      z-index: 1000;
+      cursor: pointer;
+    }
+    
+    /* Floating Drawer Preview */
+    .preview-pane {
+      display: none;
+      position: fixed;
+      top: 0; right: 0;
+      width: 100%; max-width: 650px; height: 100vh;
+      background: #ffffff;
+      border-left: 1px solid #cbd5e1;
+      overflow-y: auto;
+      padding: 20px;
+      z-index: 99999;
+      box-shadow: -10px 0 30px rgba(0,0,0,0.15);
+    }
+    .preview-pane.open { display: flex !important; flex-direction: column; }
+    
+    .vitima-card, .vestigio-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      margin-bottom: 16px;
+      background: #ffffff;
+    }
+  </style>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.37.11/docxtemplater.js"></script>
+  <script src="https://unpkg.com/pizzip@3.1.4/dist/pizzip.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+</head>
+
+<body>
+
+<div class="layout-wrapper">
+  <div class="main-content">
+    <div class="container">
+      
+      <div class="header-area">
+        <h1>Laudo de Local de Morte Violenta</h1>
+        <p>Preencha os dados abaixo. O salvamento é automático e 100% offline.</p>
+      </div>
+
+      <form id="laudoForm" onsubmit="return false;">
+        
+        <!-- SEÇÃO 1: DA OCORRÊNCIA -->
+        <div class="section-card">
+          <div class="section-title">📋 1. Da Ocorrência</div>
+          <div class="grid">
+            <div class="form-group full">
+              <label>Tipo de Local</label>
+              <select id="tipo_local">
+                <option value="">Selecione...</option>
+                <option value="HOMICÍDIO">HOMICÍDIO</option>
+                <option value="SUICÍDIO">SUICÍDIO</option>
+                <option value="ACHADO CADAVÉRICO">ACHADO CADAVÉRICO</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Número do Laudo</label><input type="text" id="num_laudo" placeholder="Ex: 0092258"></div>
+            <div class="form-group"><label>Número da Ocorrência</label><input type="text" id="ocorrencia" placeholder="Ex: 12345/2026"></div>
+            <div class="form-group full"><label>Investigado(s)</label><textarea id="investigado" rows="2" placeholder="Nomes dos investigados..."></textarea></div>
+            
+            <div class="form-group"><label>Data da Perícia</label><input type="date" id="data_pericia_input"></div>
+            <div class="form-group"><label>Horário da Perícia</label><input type="time" step="1" id="horario"></div>
+            
+            <div class="form-group"><label>Data de Atendimento</label><input type="date" id="data_atendimento_input"></div>
+            <div class="form-group"><label>Horário de Atendimento</label><input type="time" step="1" id="horario_atendimento"></div>
+            
+            <div class="form-group"><label>Perito</label><input type="text" id="perito" value="Álvaro Antônio Bezerra dos Santos"></div>
+            
+            <div class="form-group">
+              <label>Autoridade Solicitante</label>
+              <div class="input-group">
+                <select id="autoridade"></select>
+                <button type="button" class="btn-secondary" id="btnNovaAutoridade" style="padding:0 14px;" title="Adicionar autoridade">+</button>
+              </div>
+            </div>
+            
+            <div class="form-group"><label>Requisição</label><input type="text" id="requisicao"></div>
+            <div class="form-group"><label>IP / PM / TCO / BO / Proc.</label><input type="text" id="referencia"></div>
+            <div class="form-group full"><label>Unidade Destino</label><input type="text" id="destino" value="Delegacia de Homicídios de Imperatriz"></div>
+          </div>
+        </div>
+
+        <!-- SEÇÃO 2: DO LOCAL -->
+        <div class="section-card">
+          <div class="section-title">📍 2. Do Local</div>
+          <div class="grid">
+            <div class="form-group full"><label>Endereço</label><input type="text" id="endereco" placeholder="Rua, Número, Bairro..."></div>
+            
+            <div class="form-group full">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <label style="margin:0;">Coordenadas (GPS)</label>
+                <button type="button" class="btn-secondary" id="btnGeo" style="padding:4px 12px; font-size:12px; height:32px;">📍 Obter GPS Local</button>
+              </div>
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <input type="text" id="latitude" placeholder="Latitude (ex: -5.5186)">
+                <input type="text" id="longitude" placeholder="Longitude (ex: -47.4776)">
+              </div>
+            </div>
+            
+            <div class="form-group full"><label>Ponto de Referência</label><input type="text" id="ponto_referencia" placeholder="Ex: Próximo à praça central"></div>
+            <div class="form-group"><label>Área</label><input type="text" id="area" placeholder="Ex: Interna, Externa..."></div>
+            <div class="form-group"><label>Pavimento</label><input type="text" id="pavimento" placeholder="Ex: Asfalto, Piso cerâmico..."></div>
+            <div class="form-group full"><label>Delimitações</label><textarea id="delimitacoes" rows="2" placeholder="Descreva os limites..."></textarea></div>
+            
+            <div class="form-group">
+              <label>Isolamento</label>
+              <select id="isolamento">
+                <option value="">Selecione...</option>
+                <option value="Preservado e Isolado">Preservado e Isolado</option>
+                <option value="Parcialmente Preservado e Isolado">Parcialmente Preservado e Isolado</option>
+                <option value="Preservado e Parcialmente Isolado">Preservado e Parcialmente Isolado</option>
+                <option value="Não Preservado e Não Isolado">Não Preservado e Não Isolado</option>
+                <option value="Outros">Outros</option>
+              </select>
+              <input type="text" id="isolamento_outros" placeholder="Especifique..." style="display:none; margin-top:4px;">
+            </div>
+            
+            <div class="form-group">
+              <label>Clima</label>
+              <select id="clima">
+                <option value="">Selecione...</option>
+                <option value="Aberto diurno">Aberto diurno</option>
+                <option value="Aberto noturno">Aberto noturno</option>
+                <option value="Nublado diurno">Nublado diurno</option>
+                <option value="Nublado noturno">Nublado noturno</option>
+                <option value="Chuvoso diurno">Chuvoso diurno</option>
+                <option value="Chuvoso noturno">Chuvoso noturno</option>
+                <option value="Outros">Outros</option>
+              </select>
+              <input type="text" id="clima_outros" placeholder="Especifique..." style="display:none; margin-top:4px;">
+            </div>
+
+            <div class="form-group">
+              <label>Visibilidade</label>
+              <select id="visibilidade">
+                <option value="">Selecione...</option>
+                <option value="Ampla">Ampla</option>
+                <option value="Reduzida">Reduzida</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>Iluminação</label>
+              <select id="iluminacao">
+                <option value="">Selecione...</option>
+                <option value="Natural Satisfatória">Natural Satisfatória</option>
+                <option value="Natural Insatisfatória">Natural Insatisfatória</option>
+                <option value="Artificial Satisfatória">Artificial Satisfatória</option>
+                <option value="Artificial Insatisfatória">Artificial Insatisfatória</option>
+              </select>
+            </div>
+
+            <div class="form-group"><label>Equipe PM</label><input type="text" id="equipe_pm" placeholder="VTR, Comandante..."></div>
+            <div class="form-group"><label>Equipe PC</label><input type="text" id="equipe_pc" placeholder="Investigador, Delegado..."></div>
+            <div class="form-group full"><label>Autoridade no Local</label><input type="text" id="autoridade_local" placeholder="Nome da autoridade presente..."></div>
+          </div>
+        </div>
+
+        <!-- SEÇÃO 3: DOS ENVOLVIDOS (VÍTIMAS) -->
+        <div class="section-card">
+          <div class="section-title">👥 3. Das Vítimas / Envolvidos</div>
+          <div id="vitimas-container"></div>
+          <button type="button" class="btn-secondary" id="btnAddVitima" style="margin-top:8px;">➕ Adicionar Outra Vítima</button>
+        </div>
+
+        <!-- SEÇÃO 4: DOS VESTÍGIOS -->
+        <div class="section-card">
+          <div class="section-title">🔎 4. Dos Vestígios</div>
+          <div id="vestigios-container"></div>
+          <button type="button" class="btn-secondary" id="btnAddVestigio" style="margin-top:8px;">➕ Adicionar Vestígio</button>
+        </div>
+
+        <!-- SEÇÃO 5: CONSIDERAÇÕES TÉCNICAS -->
+        <div class="section-card">
+          <div class="section-title">📝 5. Considerações Técnicas</div>
+          
+          <div class="form-group full">
+            <label>a) Estado do Isolamento</label>
+            <select id="iso_estado" onchange="updateIsoUI()">
+              <option value="1">1. Local Preservado e Isolado</option>
+              <option value="2">2. Local Parcialmente Preservado e Isolado</option>
+              <option value="3">3. Local Preservado e Parcialmente Isolado</option>
+              <option value="4">4. Local Parcialmente Preservado e Parcialmente Isolado</option>
+              <option value="5">5. Local Não Preservado e Não Isolado (Devassado)</option>
+            </select>
+          </div>
+          
+          <div id="iso_meio_div" class="form-group full" style="display:none; margin-top:8px;">
+            <label>Meio de Isolamento</label>
+            <input type="text" id="iso_meio" placeholder="Ex: fita zebrada, cordão...">
+          </div>
+          <div id="iso_falha_div" class="form-group full" style="display:none; margin-top:8px;">
+            <label>Descrever Falha no Isolamento</label>
+            <input type="text" id="iso_falha" placeholder="Ex: ausência de barreiras...">
+          </div>
+          <div id="iso_alteracao_div" class="form-group full" style="display:none; margin-top:8px;">
+            <label>Descrever Alteração</label>
+            <textarea id="iso_alteracao" rows="2" placeholder="Ex: movimentação da vítima..."></textarea>
+          </div>
+
+          <hr style="margin:20px 0; border:0; border-top:1px solid #cbd5e1;">
+
+          <div class="grid">
+            <div class="form-group"><label>c) Número Laudo IML</label><input type="text" id="numero_laudo_necropsia" placeholder="Ex: 123/2026 - IML"></div>
+            <div class="form-group"><label>Resultado do Laudo IML</label><input type="text" id="resultado_laudo_IML" placeholder="Ex: traumatismo por PAF"></div>
+          </div>
+
+          <hr style="margin:20px 0; border:0; border-top:1px solid #cbd5e1;">
+
+          <div class="form-group full">
+            <label>d) Tipo de Ação do Instrumento</label>
+            <select id="inst_acao" onchange="updateInstUI()">
+              <option value="1">1. Perfurocontundente (Arma de Fogo)</option>
+              <option value="2">2. Cortante (Feridas Incisas - Faca, Navalha, Estilete, Vidro)</option>
+              <option value="3">3. Perfurante (Feridas Punctórias - Espeto, Estilete, Chave de Fenda)</option>
+              <option value="4">4. Perfurocortante (Feridas Perfuroincisas - Faca, Punhal, Canivete)</option>
+              <option value="5">5. Contundente (Feridas Contusas/Fraturas - Madeira, Pedra, Veículo, Piso)</option>
+              <option value="6">6. Cortocontundente (Feridas Contuso-Incisas - Machado, Facão, Foice)</option>
+              <option value="7">7. Ação Térmica (Queimaduras - Chama Direta, Líquido Fervente, Superfície Aquecida)</option>
+            </select>
+          </div>
+
+          <div id="inst_agente_div" class="form-group full" style="display:none; margin-top:8px;">
+            <label>Agente Compatível</label>
+            <input type="text" id="inst_agente" placeholder="Ex: faca, navalha, canivete...">
+          </div>
+
+          <div class="form-group full" style="margin-top:8px;">
+            <label>Achados Extras / Observações do Instrumento</label>
+            <textarea id="inst_extra" rows="2" placeholder="Ex: com a recuperação de um projétil em cada cadáver..."></textarea>
+          </div>
+        </div>
+
+        <!-- SEÇÃO 6: FOTOGRAFIAS E ANEXOS -->
+        <div class="section-card">
+          <div class="section-title">📷 6. Fotografias e Anexos (Base64)</div>
+          <p style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">
+            Tire fotos no local com a câmera do celular ou selecione da galeria. As imagens serão compactadas automaticamente.
+          </p>
+          <div class="form-group full">
+            <label class="btn-label" style="background:#2563eb; color:white; width:fit-content; cursor:pointer;">
+              📸 Tirar Foto / Selecionar Imagens
+              <input type="file" id="camera_input" accept="image/*" multiple capture="environment" style="display:none;" onchange="handleFotosUpload(event)">
+            </label>
+          </div>
+          <div id="fotos_container" style="margin-top:12px;"></div>
+        </div>
+
+        <!-- AÇÕES -->
+        <div class="actions">
+          <button type="button" class="btn-secondary" id="btnDrive" style="background:#0284c7; color:white; border:none;">☁️ Enviar Servidor</button>
+          <button type="button" class="btn-secondary" id="btnOpenPreviewTop" style="background:var(--accent); color:white; border:none;" onclick="document.getElementById('previewPane').classList.add('open')">📄 Laudo</button>
+          <button type="button" onclick="openOcorrenciasModal()" style="padding:8px 12px; background:#0284c7; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:13px;">📂 Ocorrências</button>
+          <button type="button" class="btn-secondary" id="btnSalvar" style="background:#2563eb; color:white; border:none;">💾 Salvar Rascunho</button>
+          <button type="button" class="btn-secondary" id="btnLimpar">🧹 Limpar</button>
+          <span id="save-status" style="margin-left:auto; color:var(--text-secondary); font-size:13px; font-weight:500;"></span>
+        </div>
+
+      </form>
+
+      <!-- OUTPUT VARS GRID -->
+      <div class="output-panel" id="outputPanel">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <h3 style="color:var(--success); font-size:18px;">✅ Variáveis Geradas</h3>
+          <button type="button" id="btnCopiarVars" style="background:var(--success);">📋 Copiar Dicionário</button>
+        </div>
+        <div class="vars-grid" id="varsGrid"></div>
+      </div>
+      
+    </div>
+  </div>
+  
+  <!-- PREVIEW DRAWER (OCULTO POR PADRÃO) -->
+  <div class="preview-pane" id="previewPane">
+    <div class="preview-header">
+      <span>👁️ Preview do Laudo</span>
+      <button type="button" class="btn-danger" id="btnClosePreview" style="padding:6px 14px; border-radius:6px;">❌ Fechar</button>
+    </div>
+    <div id="livePreviewText" class="a4-sheet"></div>
+    <div style="margin-top:16px;">
+      <button type="button" class="btn-secondary" id="btnCopiarPreview" style="width:100%;">📋 Copiar Texto do Preview</button>
+    </div>
+  </div>
+</div>
+
+<button type="button" class="fab" id="btnOpenPreview" title="Abrir Preview">👁️</button>
+
+<div id="toast" class="toast"></div>
+
+<script>
+// --- GLOBAL STATES ---
+let vitimas_state = [{"nome":"","cad":"","documento":"","sexo":"","data_nascimento":"","filicao":"","naturalidade":"","vestes":"","pertences":"","localizacao":"","posicao":"","cabeca":"","membros":"","fenomenos":"","lesoes":[""]}];
+let vestigiosState = [{"tipo":"","categoria":"","subtipo":"","localizacao":"","descricao":"","elemento_tipo":"","quantidade":"","envelope":"","arma_tipo":"","municiada":"","marca":"","cor":"","funcionamento":"","instrumento_tipo":""}];
+let fotosList = [];
+
+// --- UTILS ---
+const showToast = (msg) => {
+  const t = document.getElementById("toast");
+  t.innerHTML = "<span>ℹ️</span> " + msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 3000);
+};
+
+const mesesNomes = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+const extensoStr = {1:"um",2:"dois",3:"três",4:"quatro",5:"cinco",6:"seis",7:"sete",8:"oito",9:"nove",10:"dez",11:"onze",12:"doze",13:"treze",14:"catorze",15:"quinze",16:"dezesseis",17:"dezessete",18:"dezoito",19:"dezenove",20:"vinte",21:"vinte e um",22:"vinte e dois",23:"vinte e três",24:"vinte e quatro",25:"vinte e cinco",26:"vinte e seis",27:"vinte e sete",28:"vinte e oito",29:"vinte e nove",30:"trinta",31:"trinta e um"};
+
+function numExtenso(n) {
+  if (extensoStr[n]) return extensoStr[n];
+  if (n >= 2026 && n <= 2030) return "dois mil e " + extensoStr[n-2000];
+  return n.toString();
+}
+
+function formatarDataExtenso(dateStr) {
+  if (!dateStr) return "________";
+  const parts = dateStr.split("-");
+  if (parts.length !== 3) return "";
+  const ano = parseInt(parts[0], 10);
+  const mes = parseInt(parts[1], 10);
+  const dia = parseInt(parts[2], 10);
+  const diaStr = String(dia).padStart(2,"0");
+  return "Aos " + diaStr + " (" + numExtenso(dia) + ") dia(s) do mês de " + mesesNomes[mes-1] + " do ano " + ano + " (" + numExtenso(ano) + ")";
+}
+
+function formatarDataSimples(dateStr) {
+  if (!dateStr) return "________";
+  const parts = dateStr.split("-");
+  if (parts.length !== 3) return "";
+  return parts[2] + "/" + parts[1] + "/" + parts[0];
+}
+
+function getV(id) {
+  const el = document.getElementById(id);
+  return el ? el.value.trim() : "";
+}
+
+// --- TEMPLATES DE CONSIDERAÇÕES ---
+const tplIso = {
+  "1": "No momento da chegada da equipe pericial, o local encontrava-se devidamente isolado por meio de {meio_de_isolamento}, impedindo o acesso de pessoas não autorizadas ao perímetro de interesse. Constatou-se a integral preservação do estado das coisas.",
+  "2": "O sítio pericial apresentava-se isolado por {meio_de_isolamento}, restringindo o trânsito de pessoas estranhas aos exames naquele momento. Contudo, constatou-se que o ambiente encontrava-se apenas parcialmente preservado, notabilizando-se a alteração consubstanciada por {descrever_alteracao}.",
+  "3": "O perímetro encontrava-se parcialmente isolado, apresentando vulnerabilidades na delimitação física, tais como {descrever_falha_isolamento}. Não obstante, o núcleo do evento encontrava-se preservado.",
+  "4": "O local encontrava-se parcialmente isolado, com delimitação perimetral incipiente e insuficiente para {descrever_falha_isolamento}. Verificou-se a preservação apenas parcial, evidenciada por {descrever_alteracao}.",
+  "5": "No momento da chegada da equipe, o sítio pericial encontrava-se desprovido de qualquer isolamento e totalmente devassado, notadamente por {descrever_alteracao}."
+};
+
+const tplInst = {
+  "1": "As lesões constatadas na(s) vítima(s) são características daquelas produzidas por instrumento em ação perfurocontundente, comprovadamente produzidas por projéteis de arma de fogo (PAF), {achado_extra}.",
+  "2": "As lesões constatadas na(s) vítima(s) são características daquelas produzidas por instrumento em ação cortante (feridas incisas), comprovadamente produzidas por deslizamento de gume afiado, compatível com {agente_compativel}, {achado_extra}.",
+  "3": "As lesões constatadas na(s) vítima(s) são características daquelas produzidas por instrumento em ação perfurante (feridas punctórias), comprovadamente produzidas por agente de ponta fina, compatível com {agente_compativel}, {achado_extra}.",
+  "4": "As lesões constatadas na(s) vítima(s) são características daquelas produzidas por instrumento em ação perfurocortante (feridas perfuroincisas), comprovadamente produzidas por arma branca dotada de ponta e gume(s), compatível com {agente_compativel}, {achado_extra}.",
+  "5": "As lesões constatadas na(s) vítima(s) são características daquelas produzidas por instrumento em ação contundente (feridas contusas / equimoses / fraturas), comprovadamente produzidas por choque contra superfície rígida, compatível com {agente_compativel}, {achado_extra}.",
+  "6": "As lesões constatadas na(s) vítima(s) são características daquelas produzidas por instrumento em ação cortocontundente (feridas contuso-incisas), comprovadamente produzidas por agente dotado de massa expressiva e gume, compatível com {agente_compativel}, {achado_extra}.",
+  "7": "As lesões constatadas na(s) vítima(s) são características daquelas produzidas por energia de ordem física (ação térmica), comprovadamente decorrentes de exposição a {agente_compativel}, {achado_extra}."
+};
+
+function updateIsoUI() {
+  let estado = getV("iso_estado");
+  document.getElementById("iso_meio_div").style.display = (estado === "1" || estado === "2") ? "block" : "none";
+  document.getElementById("iso_falha_div").style.display = (estado === "3" || estado === "4") ? "block" : "none";
+  document.getElementById("iso_alteracao_div").style.display = (estado === "2" || estado === "4" || estado === "5") ? "block" : "none";
+  saveForm();
+}
+
+function updateInstUI() {
+  let estado = getV("inst_acao");
+  document.getElementById("inst_agente_div").style.display = (estado !== "1") ? "block" : "none";
+  saveForm();
+}
+
+// --- FOTOGRAFIAS HANDLER ---
+function handleFotosUpload(event) {
+  const files = event.target.files;
+  if (!files || files.length === 0) return;
+  Array.from(files).forEach(file => {
+    compressImage(file, 1280, 0.8, function(b64Compressed) {
+      fotosList.push({
+        id: Date.now() + Math.random(),
+        filename: file.name,
+        b64: b64Compressed,
+        descricao: `Visualização de ${file.name}`,
+        incluir: true
+      });
+      renderFotos();
+      saveForm();
+    });
+  });
+  event.target.value = '';
+}
+
+function compressImage(file, maxWidth, quality, callback) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      let width = img.width;
+      let height = img.height;
+      if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width);
+        width = maxWidth;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      callback(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function renderFotos() {
+  const container = document.getElementById("fotos_container");
+  if (!container) return;
+  container.innerHTML = "";
+  if (fotosList.length === 0) {
+    container.innerHTML = '<p style="color:#64748b; font-size:13px;">Nenhuma foto adicionada ainda.</p>';
+    return;
+  }
+  fotosList.forEach((foto, idx) => {
+    const div = document.createElement("div");
+    div.style.cssText = "display:flex; gap:12px; background:#ffffff; border:1px solid #cbd5e1; padding:12px; border-radius:8px; margin-bottom:10px;";
+    div.innerHTML = `
+      <img src="${foto.b64}" style="width:80px; height:80px; object-fit:cover; border-radius:6px;">
+      <div style="flex:1;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>Fotografia #${idx + 1}</strong>
+          <label style="font-size:12px;"><input type="checkbox" ${foto.incluir ? 'checked' : ''} onchange="updateFoto(${idx}, 'incluir', this.checked)"> Incluir no Laudo</label>
+        </div>
+        <textarea style="width:100%; font-size:12px; margin-top:6px; height:45px;" onchange="updateFoto(${idx}, 'descricao', this.value)">${foto.descricao || ''}</textarea>
+        <button type="button" class="btn-danger" style="padding:2px 8px; font-size:11px; margin-top:4px;" onclick="removeFoto(${idx})">🗑️ Remover</button>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function updateFoto(idx, field, val) { if(fotosList[idx]){ fotosList[idx][field] = val; saveForm(); } }
+function removeFoto(idx) { fotosList.splice(idx, 1); renderFotos(); saveForm(); }
+
+// --- VÍTIMAS HANDLER ---
+function renderVitimas() {
+  const container = document.getElementById("vitimas-container");
+  container.innerHTML = "";
+  vitimas_state.forEach((vit, vIndex) => {
+    const card = document.createElement("div");
+    card.className = "vitima-card";
+    card.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #cbd5e1; padding-bottom:6px; margin-bottom:12px;">
+        <strong style="color:var(--accent);">👤 Vítima #${vIndex + 1}</strong>
+        ${vitimas_state.length > 1 ? `<button type="button" class="btn-danger" style="padding:4px 8px; font-size:12px;" onclick="removeVitima(${vIndex})">🗑️ Remover</button>` : ''}
+      </div>
+      <div class="grid">
+        <div class="form-group"><label>Nome completo</label><input type="text" value="${vit.nome||''}" oninput="updateVit(${vIndex}, 'nome', this.value)"></div>
+        <div class="form-group"><label>CAD</label><input type="text" value="${vit.cad||''}" oninput="updateVit(${vIndex}, 'cad', this.value)"></div>
+        <div class="form-group"><label>Nº Documento</label><input type="text" value="${vit.documento||''}" oninput="updateVit(${vIndex}, 'documento', this.value)"></div>
+        <div class="form-group"><label>Sexo</label><select onchange="updateVit(${vIndex}, 'sexo', this.value)">
+          <option value="" ${vit.sexo===''?'selected':''}>Selecione...</option>
+          <option value="Masculino" ${vit.sexo==='Masculino'?'selected':''}>Masculino</option>
+          <option value="Feminino" ${vit.sexo==='Feminino'?'selected':''}>Feminino</option>
+        </select></div>
+        <div class="form-group"><label>Data Nascimento</label><input type="date" value="${vit.data_nascimento||''}" onchange="updateVit(${vIndex}, 'data_nascimento', this.value)"></div>
+        <div class="form-group"><label>Filiação</label><input type="text" value="${vit.filicao||''}" oninput="updateVit(${vIndex}, 'filicao', this.value)"></div>
+        <div class="form-group"><label>Naturalidade</label><input type="text" value="${vit.naturalidade||''}" oninput="updateVit(${vIndex}, 'naturalidade', this.value)"></div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function updateVit(idx, field, val) { if(vitimas_state[idx]){ vitimas_state[idx][field] = val; saveForm(); } }
+function removeVitima(idx) { vitimas_state.splice(idx, 1); renderVitimas(); saveForm(); }
+document.getElementById("btnAddVitima").addEventListener("click", () => {
+  vitimas_state.push({"nome":"","cad":"","documento":"","sexo":"","data_nascimento":"","filicao":"","naturalidade":""});
+  renderVitimas(); saveForm();
+});
+
+// --- VESTÍGIOS HANDLER ---
+function renderVestigios() {
+  const container = document.getElementById("vestigios-container");
+  container.innerHTML = "";
+  vestigiosState.forEach((vest, i) => {
+    const card = document.createElement("div");
+    card.className = "vestigio-card";
+    card.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #cbd5e1; padding-bottom:6px; margin-bottom:12px;">
+        <strong style="color:var(--accent);">🔎 Vestígio #${i + 1}</strong>
+        ${vestigiosState.length > 1 ? `<button type="button" class="btn-danger" style="padding:4px 8px; font-size:12px;" onclick="removeVestigio(${i})">🗑️ Remover</button>` : ''}
+      </div>
+      <div class="grid">
+        <div class="form-group full"><label>Tipo de Vestígio</label>
+          <select onchange="updateVest(${i}, 'tipo', this.value); renderVestigios();">
+            <option value="" ${vest.tipo===''?'selected':''}>Selecione...</option>
+            <option value="Manchas de Sangue" ${vest.tipo==='Manchas de Sangue'?'selected':''}>Manchas de Sangue</option>
+            <option value="Elemento Balístico" ${vest.tipo==='Elemento Balístico'?'selected':''}>Elemento Balístico</option>
+            <option value="Arma de Fogo" ${vest.tipo==='Arma de Fogo'?'selected':''}>Arma de Fogo</option>
+            <option value="Instrumento Lesivo" ${vest.tipo==='Instrumento Lesivo'?'selected':''}>Instrumento Lesivo</option>
+            <option value="Aparelho Telefônico" ${vest.tipo==='Aparelho Telefônico'?'selected':''}>Aparelho Telefônico</option>
+            <option value="Impressão Datiloscópica" ${vest.tipo==='Impressão Datiloscópica'?'selected':''}>Impressão Datiloscópica</option>
+            <option value="Outros" ${vest.tipo==='Outros'?'selected':''}>Outros</option>
+          </select>
+        </div>
+        <div class="form-group full"><label>Localização</label><input type="text" value="${vest.localizacao||''}" oninput="updateVest(${i}, 'localizacao', this.value)"></div>
+        <div class="form-group full"><label>Descrição</label><textarea rows="2" oninput="updateVest(${i}, 'descricao', this.value)">${vest.descricao||''}</textarea></div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function updateVest(idx, field, val) { if(vestigiosState[idx]){ vestigiosState[idx][field] = val; saveForm(); } }
+function removeVestigio(idx) { vestigiosState.splice(idx, 1); renderVestigios(); saveForm(); }
+document.getElementById("btnAddVestigio").addEventListener("click", () => {
+  vestigiosState.push({"tipo":"","localizacao":"","descricao":""});
+  renderVestigios(); saveForm();
+});
+
+// --- SAVE & LOAD ---
+const LS_KEY = "icrim_laudo_v5";
+
+// --- REQUISITO 1: FORMULÁRIO EM BRANCO AO RECARREGAR A PÁGINA ---
+// O formulário abre zerado por padrão para não misturar ocorrências anteriores.
+// O perito padrão é "Álvaro Antônio Bezerra dos Santos".
+
+const DRAFTS_KEY = "icrim_saved_occurrences_v1";
+
+function getDrafts() {
+  try {
+    return JSON.parse(localStorage.getItem(DRAFTS_KEY) || "{}");
+  } catch(e) {
+    return {};
+  }
+}
+
+function saveDrafts(drafts) {
+  localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts));
+}
+
+function getFormData() {
+  const data = {};
+  document.querySelectorAll("input, textarea, select").forEach(el => { if (el.id) data[el.id] = el.value; });
+  data.vitimas = vitimas_state;
+  data.vestigios = vestigiosState;
+  data.fotos = fotosList;
+  return data;
+}
+
+// --- REQUISITO: PROTEÇÃO DE DUPLICIDADE E AUTO-PREENCHIMENTO ---
+
+function getDraftPericiaDate(item) {
+  if (!item || !item.dados) return null;
+  const dateStr = item.dados.data_pericia_input;
+  const timeStr = item.dados.horario;
+  if (!dateStr || !timeStr) return null;
+  
+  try {
+    const dParts = dateStr.split("-");
+    const tParts = timeStr.split(":");
+    if (dParts.length !== 3 || tParts.length < 2) return null;
+    return new Date(
+      parseInt(dParts[0]),
+      parseInt(dParts[1]) - 1,
+      parseInt(dParts[2]),
+      parseInt(tParts[0]),
+      parseInt(tParts[1]),
+      tParts[2] ? parseInt(tParts[2]) : 0
+    );
+  } catch(e) {
+    return null;
+  }
+}
+
+// --- REQUISITO: PROTEÇÃO DE DUPLICIDADE E AUTO-PREENCHIMENTO ---
+
+function getDraftPericiaDate(item) {
+  if (!item || !item.dados) return null;
+  const dateStr = item.dados.data_pericia_input;
+  const timeStr = item.dados.horario;
+  if (!dateStr || !timeStr) return null;
+  
+  try {
+    const dParts = dateStr.split("-");
+    const tParts = timeStr.split(":");
+    if (dParts.length !== 3 || tParts.length < 2) return null;
+    return new Date(
+      parseInt(dParts[0]),
+      parseInt(dParts[1]) - 1,
+      parseInt(dParts[2]),
+      parseInt(tParts[0]),
+      parseInt(tParts[1]),
+      tParts[2] ? parseInt(tParts[2]) : 0
+    );
+  } catch(e) {
+    return null;
+  }
+}
+
+function hasRecentDraftByPericiaTime(targetDate, targetTime, currentId = null) {
+  const drafts = getDrafts();
+  
+  try {
+    const dParts = targetDate.split("-");
+    const tParts = targetTime.split(":");
+    if (dParts.length !== 3 || tParts.length < 2) return null;
+    
+    const targetDt = new Date(
+      parseInt(dParts[0]),
+      parseInt(dParts[1]) - 1,
+      parseInt(dParts[2]),
+      parseInt(tParts[0]),
+      parseInt(tParts[1]),
+      tParts[2] ? parseInt(tParts[2]) : 0
+    );
+    
+    for (const id in drafts) {
+      if (currentId && id === currentId) continue;
+      const item = drafts[id];
+      const itemDt = getDraftPericiaDate(item);
+      if (itemDt) {
+        const diffMs = Math.abs(targetDt - itemDt);
+        const diffMins = diffMs / 1000 / 60;
+        if (diffMins < 60) { // Menos de 1 hora de diferença com base no horário da perícia
+          return {
+            ocorrencia: item.ocorrencia || "Sem nº",
+            minutos: Math.round(diffMins),
+            id: item.id
+          };
+        }
+      }
+    }
+  } catch(e) {}
+  return null;
+}
+
+function prefillDateTimeAndGPS() {
+  console.log("prefillDateTimeAndGPS executado");
+  const now = new Date();
+  
+  // Format dates: YYYY-MM-DD
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  const dateStr = `${yyyy}-${mm}-${dd}`;
+  
+  // Format times: HH:MM:SS
+  const hh = String(now.getHours()).padStart(2, "0");
+  const min = String(now.getMinutes()).padStart(2, "0");
+  const ss = String(now.getSeconds()).padStart(2, "0");
+  const timeStr = `${hh}:${min}:${ss}`;
+  
+  const fields = {
+    "data_pericia_input": dateStr,
+    "data_atendimento_input": dateStr,
+    "horario": timeStr,
+    "horario_atendimento": timeStr
+  };
+  
+  for (const id in fields) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.value = fields[id];
+    }
+  }
+
+  // Preencher GPS automaticamente (Fornecendo uma função vazia ao invés de null para evitar crash)
+  const latEl = document.getElementById("latitude");
+  const lonEl = document.getElementById("longitude");
+  if (latEl && lonEl) {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        latEl.value = pos.coords.latitude.toFixed(6);
+        lonEl.value = pos.coords.longitude.toFixed(6);
+        saveForm();
+        showToast("📍 GPS atualizado automaticamente!");
+      }, () => {
+        console.log("GPS recusado ou indisponível");
+      }, { enableHighAccuracy: true });
+    }
+  }
+}
+
+function resetForm(force = false) {
+  const now = new Date();
+  const dateStr = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2,"0") + "-" + String(now.getDate()).padStart(2,"0");
+  const timeStr = String(now.getHours()).padStart(2,"0") + ":" + String(now.getMinutes()).padStart(2,"0") + ":" + String(now.getSeconds()).padStart(2,"0");
+
+  if (!force) {
+    const recent = hasRecentDraftByPericiaTime(dateStr, timeStr);
+    if (recent) {
+      const confirmNew = confirm("⚠️ Alerta de Duplicidade por Horário:\nJá existe uma ocorrência salva no sistema com horário de perícia próximo (diferença de apenas " + recent.minutos + " minutos, Ocorrência: " + recent.ocorrencia + ").\n\nDeseja realmente abrir uma NOVA ocorrência em branco?");
+      if (!confirmNew) {
+        openOcorrenciasModal();
+        return;
+      }
+    }
+  }
+
+  // Limpa todos os campos
+  document.querySelectorAll("input, textarea, select").forEach(el => {
+    if (el.id !== "perito") el.value = "";
+  });
+  
+  const peritoEl = document.getElementById("perito");
+  if (peritoEl) peritoEl.value = "Álvaro Antônio Bezerra dos Santos";
+  
+  vitimas_state = [];
+  vestigiosState = [];
+  fotosList = [];
+  
+  renderVitimas();
+  renderVestigios();
+  renderFotos();
+  updateIsoUI();
+  updateInstUI();
+  
+  // Aplica preenchimento automático de data/hora/GPS
+  prefillDateTimeAndGPS();
+  
+  updatePreview();
+  
+  const statusEl = document.getElementById("save-status");
+  if (statusEl) statusEl.innerText = "Formulário em branco iniciado";
+}
+
+
+function saveCurrentAsDraft(status) {
+  const data = {};
+  document.querySelectorAll("input, textarea, select").forEach(el => {
+    if (el.id) data[el.id] = el.value;
+  });
+  data.vitimas = vitimas_state;
+  data.vestigios = vestigiosState;
+  data.fotos = fotosList;
+  
+  const payload = {
+    ocorrencia: data.ocorrencia,
+    status: status,
+    dataAtualizacao: new Date().toISOString(),
+    dados: data
+  };
+
+  const drafts = getDrafts();
+  
+  let draftId = data.ocorrencia;
+  if (!draftId) {
+     draftId = window.currentDraftId || ("temp_" + Date.now());
+     window.currentDraftId = draftId; 
+  }
+
+  payload.id = draftId;
+  drafts[draftId] = payload;
+
+  try {
+    localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts));
+  } catch(e) {
+    console.error("Erro ao salvar rascunho:", e);
+  }
+}
+
+function saveForm() {
+  saveCurrentAsDraft("rascunho");
+  const now = new Date();
+  const timeStr = String(now.getHours()).padStart(2,"0") + ":" + String(now.getMinutes()).padStart(2,"0") + ":" + String(now.getSeconds()).padStart(2,"0");
+  const statusEl = document.getElementById("save-status");
+  if (statusEl) statusEl.innerText = "Salvo às " + timeStr;
+  updatePreview();
+}
+
+function loadForm() {
+  console.log("loadForm executado");
+  resetForm(true); // O primeiro carregamento é "forçado" para abrir sem o popup confirm
+}
+
+function loadDraftById(id) {
+  const drafts = getDrafts();
+  const item = drafts[id];
+  if (!item || !item.dados) {
+    showToast("⚠️ Ocorrência não encontrada.");
+    return;
+  }
+  const data = item.dados;
+  for (const key in data) {
+    const el = document.getElementById(key);
+    if (el && typeof data[key] === 'string') el.value = data[key];
+  }
+  vitimas_state = data.vitimas || [];
+  vestigiosState = data.vestigios || [];
+  fotosList = data.fotos || [];
+  renderVitimas();
+  renderVestigios();
+  renderFotos();
+  updateIsoUI();
+  updateInstUI();
+  updatePreview();
+  closeOcorrenciasModal();
+  showToast("✅ Ocorrência " + (item.ocorrencia || "") + " carregada!");
+}
+
+function deleteDraftById(id) {
+  const drafts = getDrafts();
+  const item = drafts[id] || {};
+  const ocorrenciaNum = item.ocorrencia || id;
+
+  if (!confirm("Tem certeza que deseja excluir a ocorrência " + ocorrenciaNum + "? Ela será removida deste dispositivo e da planilha do Google Drive.")) return;
+
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbx9N4hidxHbfAUUpHVDAOadZBF5SRB9x9UzC0nt3k-wW0pgLThCHwBQsaUMJjtcTL1QJw/exec";
+  
+  // Envia ID e número da ocorrência para garantir exclusão na planilha
+  fetch(GAS_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify({ key: "perito:icrim123", action: "delete", mobile_id: id })
+  }).catch(err => {});
+
+  if (ocorrenciaNum !== id) {
+    fetch(GAS_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({ key: "perito:icrim123", action: "delete", mobile_id: ocorrenciaNum })
+    }).catch(err => {});
+  }
+
+  delete drafts[id];
+  saveDrafts(drafts);
+  renderOcorrenciasList();
+  showToast("🗑️ Ocorrência " + ocorrenciaNum + " excluída do dispositivo e da planilha!");
+}
+
+function openOcorrenciasModal() {
+  renderOcorrenciasList();
+  const m = document.getElementById("ocorrenciasModalOverlay");
+  if (m) m.style.display = "flex";
+
+  // Buscar também as ocorrências salvas na Planilha do Google (Servidor)
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbx9N4hidxHbfAUUpHVDAOadZBF5SRB9x9UzC0nt3k-wW0pgLThCHwBQsaUMJjtcTL1QJw/exec";
+  fetch(GAS_URL + "?key=perito:icrim123")
+    .then(res => res.json())
+    .then(list => {
+      if (Array.isArray(list) && list.length > 0) {
+        const drafts = getDrafts();
+        list.forEach(item => {
+          try {
+            const parsedData = typeof item.dados_json === "string" ? JSON.parse(item.dados_json) : item.dados_json;
+            const id = item.mobile_id || parsedData.ocorrencia || ("cloud_" + Date.now());
+            drafts[id] = {
+              id: id,
+              ocorrencia: parsedData.ocorrencia || item.mobile_id || "Sem Número",
+              num_laudo: parsedData.num_laudo || "s/n",
+              perito: parsedData.perito || "Álvaro Antônio Bezerra dos Santos",
+              tipo_local: parsedData.tipo_local || "Morte Violenta",
+              data_salvamento: item.data_sincronizacao ? new Date(item.data_sincronizacao).toLocaleString("pt-BR") : new Date().toLocaleString("pt-BR"),
+              status: "sincronizado",
+              dados: parsedData
+            };
+          } catch(e){}
+        });
+        saveDrafts(drafts);
+        renderOcorrenciasList();
+      }
+    })
+    .catch(err => {
+      console.log("Servidor em nuvem indisponível offline");
+    });
+}
+
+function closeOcorrenciasModal() {
+  const m = document.getElementById("ocorrenciasModalOverlay");
+  if (m) m.style.display = "none";
+}
+
+function renderOcorrenciasList() {
+  const container = document.getElementById("ocorrenciasListContainer");
+  if (!container) return;
+  
+  const drafts = getDrafts();
+  const keys = Object.keys(drafts);
+  
+  if (keys.length === 0) {
+    container.innerHTML = `<div style="text-align:center; padding:32px; color:var(--text-muted);">Nenhuma ocorrência salva ou sincronizada ainda.</div>`;
+    return;
+  }
+  
+  let html = "";
+  // Sort latest first
+  keys.sort().reverse().forEach(k => {
+    const item = drafts[k];
+    const isSync = item.status === "sincronizado";
+    const badgeColor = isSync ? "#10b981" : "#f59e0b";
+    const badgeText = isSync ? "☁️ Sincronizado" : "💾 Rascunho";
+    
+    html += `
+      <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px; margin-bottom:10px; display:flex; flex-direction:column; gap:6px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong style="font-size:15px; color:#0f172a;">Ocorrência: ${item.ocorrencia || "Sem nº"}</strong>
+          <span style="font-size:11px; padding:3px 8px; border-radius:12px; background:${badgeColor}22; color:${badgeColor}; font-weight:600;">${badgeText}</span>
+        </div>
+        <div style="font-size:12px; color:#64748b;">
+          <div>Perito: <strong>${item.perito || "Álvaro"}</strong> | Tipo: <strong>${item.tipo_local || "Geral"}</strong></div>
+          <div>Salvo em: ${item.data_salvamento || "-"}</div>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:6px;">
+          <button type="button" onclick="loadDraftById('${item.id}')" style="flex:1; padding:7px; background:#2563eb; color:white; border:none; border-radius:6px; font-weight:600; cursor:pointer; font-size:12px;">📥 Abrir / Editar</button>
+          <button type="button" onclick="deleteDraftById('${item.id}')" style="padding:7px 12px; background:#ef444415; color:#ef4444; border:1px solid #ef444444; border-radius:6px; font-weight:600; cursor:pointer; font-size:12px;">🗑️ Excluir</button>
+        </div>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+}
+
+
+
+// --- PREVIEW RENDERER ---
+function updatePreview() {
+  const num_laudo = getV("num_laudo");
+  const ano = new Date().getFullYear();
+  const ocorrencia = getV("ocorrencia");
+  const perito = getV("perito");
+  const autoridade = getV("autoridade");
+  const requisicao = getV("requisicao");
+  const tipo_local = getV("tipo_local");
+  
+  let nomes_v = vitimas_state.filter(v => v.nome && v.nome.trim()).map(v => v.nome.trim());
+  const vitima_header = nomes_v.length > 0 ? nomes_v.join(", ") : "________";
+
+  let vitimasHtml = vitimas_state.map((v, i) => `
+    <div style="margin-top:6px;">
+      <b>Vítima ${i+1}:</b> ${v.nome || '________'}<br>
+      • CAD: ${v.cad || '________'} | Doc: ${v.documento || '________'} | Sexo: ${v.sexo || '________'}<br>
+      • Data Nasc: ${v.data_nascimento || '________'} | Naturalidade: ${v.naturalidade || '________'}<br>
+      • Filiação: ${v.filicao || '________'}
+    </div>
+  `).join("");
+
+  let vestigiosHtml = vestigiosState.filter(v => v.tipo).map((v, i) => `
+    <div style="margin-top:6px;">
+      <b>Vestígio ${i+1} (${v.tipo}):</b><br>
+      • Localização: ${v.localizacao || '________'}<br>
+      • Descrição: ${v.descricao || '________'}
+    </div>
+  `).join("");
+  if(!vestigiosHtml) vestigiosHtml = "<div>Não foram descritos vestígios.</div>";
+
+  let isoKey = getV("iso_estado") || "1";
+  let isoText = tplIso[isoKey] || "";
+  isoText = isoText.replace("{meio_de_isolamento}", getV("iso_meio") || "________")
+                  .replace("{descrever_alteracao}", getV("iso_alteracao") || "________")
+                  .replace("{descrever_falha_isolamento}", getV("iso_falha") || "________");
+
+  let instKey = getV("inst_acao") || "1";
+  let instText = tplInst[instKey] || "";
+  let agenteVal = (instKey === "1") ? "projéteis de arma de fogo (PAF)" : (getV("inst_agente") || "________");
+  let extraVal = getV("inst_extra") || "________";
+  instText = instText.replace("{agente_compativel}", agenteVal).replace("{achado_extra}", extraVal);
+
+  let fotosHtml = fotosList.filter(f => f.incluir).map((f, i) => `
+    <div style="margin-top:12px; text-align:center;">
+      <div style="font-weight:600; text-align:left; margin-bottom:4px;">Fotografia ${i+1} – ${f.descricao || ''}</div>
+      <img src="${f.b64}" style="max-width:100%; max-height:220px; border-radius:6px; border:1px solid #cbd5e1;">
+    </div>
+  `).join("");
+  if(!fotosHtml) fotosHtml = "<div>Nenhuma fotografia anexada.</div>";
+
+  const htmlOut = `
+    <div style="text-align:center; font-weight:700; font-size:11px; color:#1e293b; margin-bottom:12px;">
+      GOVERNO DO ESTADO DO MARANHÃO<br>SECRETARIA DE ESTADO DA SEGURANÇA PÚBLICA<br>POLÍCIA CIVIL — INSTITUTO DE CRIMINALÍSTICA DE IMPERATRIZ
+    </div>
+    <div style="text-align:center; font-weight:700; font-size:13px; color:#0f172a; border-bottom:2px solid #0f172a; padding-bottom:4px; margin-bottom:12px;">
+      LAUDO DE EXAME PERICIAL EM LOCAL DE MORTE VIOLENTA Nº ${num_laudo || '____'}.${ano}/PO
+    </div>
+    <div style="font-size:11px; line-height:1.5;">
+      <div><b>NATUREZA:</b> Local de Morte Violenta (${tipo_local || '________'})</div>
+      <div><b>OCORRÊNCIA:</b> ${ocorrencia || '____'}</div>
+      <div><b>PERITO:</b> ${perito || '____'}</div>
+      <div><b>VÍTIMA(S):</b> ${vitima_header}</div>
+    </div>
+    <div style="font-weight:700; margin-top:12px; border-bottom:1px solid #cbd5e1;">1 — HISTÓRICO</div>
+    <div style="font-size:11px; margin-top:4px;">Atendendo à solicitação do dia ${formatarDataSimples(getV("data_pericia_input"))} às ${getV("horario")}, compareceu a equipe ao local.</div>
+    <div style="font-weight:700; margin-top:12px; border-bottom:1px solid #cbd5e1;">2 — DO LOCAL</div>
+    <div style="font-size:11px; margin-top:4px;"><b>ENDEREÇO:</b> ${getV("endereco")} (GPS: ${getV("latitude")}, ${getV("longitude")})</div>
+    <div style="font-weight:700; margin-top:12px; border-bottom:1px solid #cbd5e1;">3 — DOS ENVOLVIDOS (VÍTIMAS)</div>
+    <div style="font-size:11px;">${vitimasHtml}</div>
+    <div style="font-weight:700; margin-top:12px; border-bottom:1px solid #cbd5e1;">4 — DOS VESTÍGIOS</div>
+    <div style="font-size:11px;">${vestigiosHtml}</div>
+    <div style="font-weight:700; margin-top:12px; border-bottom:1px solid #cbd5e1;">5 — CONSIDERAÇÕES TÉCNICAS</div>
+    <div style="font-size:11px; margin-top:4px;">
+      <b>a. Tipo de Local:</b> ${tipo_local || '________'}<br>
+      <b>b. Isolamento:</b> ${isoText}<br>
+      <b>c. IML:</b> Laudo Nº ${getV("numero_laudo_necropsia") || '________'} | Atestado: ${getV("resultado_laudo_IML") || '________'}<br>
+      <b>d. Instrumento:</b> ${instText}
+    </div>
+    <div style="font-weight:700; margin-top:12px; border-bottom:1px solid #cbd5e1;">APÊNDICE A — TOMADAS FOTOGRÁFICAS</div>
+    <div style="font-size:11px;">${fotosHtml}</div>
+  `;
+  document.getElementById("livePreviewText").innerHTML = htmlOut;
+}
+
+// --- GPS & CONTROLS ---
+document.getElementById("btnGeo").addEventListener("click", () => {
+  if (!navigator.geolocation) { showToast("GPS não suportado."); return; }
+  const btn = document.getElementById("btnGeo"); btn.innerText = "⏳...";
+  navigator.geolocation.getCurrentPosition(pos => {
+    document.getElementById("latitude").value = pos.coords.latitude.toFixed(6);
+    document.getElementById("longitude").value = pos.coords.longitude.toFixed(6);
+    saveForm(); btn.innerText = "📍 GPS"; showToast("GPS capturado!");
+  }, () => { btn.innerText = "📍 GPS"; showToast("Erro no GPS."); }, { enableHighAccuracy: true });
+});
+
+document.getElementById("btnDrive").addEventListener("click", () => {
+  saveForm();
+
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbx9N4hidxHbfAUUpHVDAOadZBF5SRB9x9UzC0nt3k-wW0pgLThCHwBQsaUMJjtcTL1QJw/exec";
+
+  // Coletar dados do formulário
+  const data = {};
+  document.querySelectorAll("input, textarea, select").forEach(el => { if (el.id) data[el.id] = el.value; });
+  data.vitimas = vitimas_state;
+  data.vestigios = vestigiosState;
+  data.fotos_count = fotosList.length;
+
+  const payload = {
+    key: "perito:icrim123",
+    mobile_id: data.ocorrencia || ("mob_" + Date.now()),
+    dados: data
+  };
+
+  saveCurrentAsDraft("sincronizado");
+  showToast("⏳ Enviando para o Google Drive...");
+
+  // mode: "no-cors" garante que o browser não bloqueia o envio
+  // O dado SAI mesmo sem ler a resposta
+  fetch(GAS_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify(payload)
+  })
+  .then(() => {
+    showToast("✅ Ocorrência enviada ao Google Drive com sucesso!");
+  })
+  .catch(err => {
+    showToast("⚠️ Falha na conexão: " + err.message);
+  });
+});
+
+document.getElementById("btnLimpar").addEventListener("click", () => {
+  if (confirm("Limpar todo o formulário?")) {
+    document.getElementById("laudoForm").reset();
+    localStorage.removeItem(LS_KEY);
+    vitimas_state = [{"nome":"","cad":"","documento":"","sexo":"","data_nascimento":"","filicao":"","naturalidade":""}];
+    vestigiosState = [{"tipo":"","localizacao":"","descricao":""}];
+    fotosList = [];
+    resetForm(true); showToast("Formulário limpo!");
+  }
+});
+
+document.getElementById("btnOpenPreview").addEventListener("click", () => document.getElementById("previewPane").classList.add("open"));
+document.getElementById("btnClosePreview").addEventListener("click", () => document.getElementById("previewPane").classList.remove("open"));
+document.getElementById("btnCopiarPreview").addEventListener("click", () => {
+  navigator.clipboard.writeText(document.getElementById("livePreviewText").innerText).then(() => showToast("Texto copiado!"));
+});
+
+document.querySelectorAll("input, textarea, select").forEach(el => el.addEventListener("input", saveForm));
+
+
+
+// --- AUTENTICAÇÃO TEMPORARIAMENTE SUSPENSA (AUTO-LOGIN ALVARO) ---
+function checkAuthOnLoad() {
+  sessionStorage.setItem("user_logged_in", "true");
+  localStorage.setItem("user_logged_in", "true");
+  sessionStorage.setItem("current_user", "Álvaro Antônio Bezerra dos Santos");
+  
+  const overlay = document.getElementById("loginModalOverlay");
+  if (overlay) overlay.style.display = "none";
+  
+  const peritoEl = document.getElementById("perito");
+  if (peritoEl && (!peritoEl.value || peritoEl.value === "<perito>")) {
+    peritoEl.value = "Álvaro Antônio Bezerra dos Santos";
+    if (typeof saveForm === "function") saveForm();
+  }
+}
+
+function submitLogin() { checkAuthOnLoad(); }
+function handleLoginSubmit(e) { if(e) e.preventDefault(); checkAuthOnLoad(); return false; }
+
+
+window.addEventListener("DOMContentLoaded", () => { checkAuthOnLoad(); });
+
+window.addEventListener("DOMContentLoaded", () => {
+  loadForm();
+});
+</script>
+
+
+<!-- LOGIN MODAL OVERLAY -->
+<div id="loginModalOverlay" style="display:none !important; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.85); backdrop-filter:blur(6px); z-index:999999; display:flex; align-items:center; justify-content:center; padding:16px;">
+  <div style="background:#ffffff; border-radius:16px; padding:32px 24px; width:100%; max-width:400px; box-shadow:0 20px 40px rgba(0,0,0,0.3); text-align:center;">
+    <div style="font-size:32px; margin-bottom:8px;">⚖️</div>
+    <h2 style="font-size:20px; font-weight:700; color:#0f172a; margin-bottom:4px;">ICRIM — Sistema de Laudos</h2>
+    <p style="font-size:13px; color:#64748b; margin-bottom:24px;">Autenticação Pericial Obrigatória</p>
+    
+    <form id="loginForm" onsubmit="handleLoginSubmit(event); return false;">
+      <div style="text-align:left; margin-bottom:14px;">
+        <label style="font-size:12px; font-weight:600; color:#475569;">Usuário</label>
+        <input type="text" id="login_user" placeholder="Ex: Alvaro" style="width:100%; margin-top:4px; padding:12px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px;" required>
+      </div>
+      <div style="text-align:left; margin-bottom:20px;">
+        <label style="font-size:12px; font-weight:600; color:#475569;">Senha</label>
+        <input type="password" id="login_pass" placeholder="••••••••" style="width:100%; margin-top:4px; padding:12px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px;" required>
+      </div>
+      <div id="login_error" style="color:#ef4444; font-size:12px; font-weight:600; margin-bottom:12px; display:none;">
+        ❌ Usuário ou senha incorretos!
+      </div>
+      <button type="button" onclick="submitLogin()" style="width:100%; padding:12px; background:#2563eb; color:white; font-weight:700; border:none; border-radius:8px; cursor:pointer; font-size:15px;">
+        🔐 Entrar no Sistema
+      </button>
+    </form>
+  </div>
+</div>
+
+
+<!-- MODAL DE OCORRÊNCIAS SALVAS E SINCRONIZADAS -->
+<div id="ocorrenciasModalOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.7); backdrop-filter:blur(4px); z-index:99999; align-items:center; justify-content:center; padding:16px;">
+  <div style="background:#ffffff; width:100%; max-width:550px; max-height:85vh; border-radius:16px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.3); display:flex; flex-direction:column; overflow:hidden;">
+    <div style="padding:16px 20px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
+      <h3 style="font-size:17px; font-weight:700; color:#0f172a; margin:0;">📂 Minhas Ocorrências Salvas</h3>
+      <button type="button" onclick="closeOcorrenciasModal()" style="background:none; border:none; font-size:20px; cursor:pointer; color:#64748b;">✕</button>
+    </div>
+    
+    <div style="padding:12px 20px; background:#eff6ff; border-bottom:1px solid #dbeafe; display:flex; gap:10px; align-items:center; justify-content:space-between;">
+      <span style="font-size:12px; color:#1e40af;">Inicie uma nova ocorrência ou abra um rascunho anterior:</span>
+      <button type="button" onclick="resetForm(); closeOcorrenciasModal(); showToast('✨ Formulário zerado!');" style="padding:6px 12px; background:#2563eb; color:white; border:none; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap;">➕ Nova Em Branco</button>
+    </div>
+
+    <div id="ocorrenciasListContainer" style="padding:16px; overflow-y:auto; flex:1;">
+      <!-- Ocorrências renderizadas via JS -->
+    </div>
+
+    <div style="padding:12px 20px; border-top:1px solid #e2e8f0; background:#f8fafc; text-align:right;">
+      <button type="button" onclick="closeOcorrenciasModal()" style="padding:8px 16px; background:#e2e8f0; color:#334155; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Fechar</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
