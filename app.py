@@ -1198,7 +1198,9 @@ with main:
 
         if gerar_clicked:
             try:
-                doc = Document(r"d:\OneDrive\ICRIM\NPT\Documentos\Laudo Morte Violenta\Modelo Laudo.docx")
+                import os
+                template_path = os.path.join(os.path.dirname(__file__), "Modelo Laudo.docx")
+                doc = Document(template_path)
                 
                 # Fetch dynamically selected data
                 dp_val = st.session_state.get("data_pericia_input", date.today())
