@@ -60,301 +60,115 @@ for key, default in {
 # ─────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
-/* ── Ajuste da barra superior padrão do Streamlit ── */
-header[data-testid="stHeader"] { background-color: transparent !important; pointer-events: none; }
-[data-testid="collapsedControl"] { 
-    display: none !important;
-}
-.stAppDeployButton { display: none !important; }
-
-/* ── Sidebar Background ── */
-[data-testid="stSidebar"] {
-    background-color: #0f2044 !important;
-}
-[data-testid="stSidebar"] * {
-    color: #ffffff !important;
-}
-
-/* ── Navegação Lateral (Radio Buttons) ── */
-div[role="radiogroup"] label { 
-    background-color: transparent !important;
-    border-radius: 8px !important;
-    padding: 10px 15px !important;
-    margin-bottom: 2px !important;
-    border: none !important;
-    transition: all 0.2s;
-}
-div[role="radiogroup"] label > div:first-child { 
-    display: none !important; 
-}
-div[role="radiogroup"] label:hover {
-    background-color: rgba(255,255,255,0.1) !important;
-}
-div[role="radiogroup"] label[data-checked="true"] { 
-    background-color: rgba(255,255,255,0.2) !important;
-    border-left: 4px solid #3b82f6 !important;
-    border-radius: 4px !important;
-}
-div[role="radiogroup"] label p {
-    font-size: 14px !important;
-    font-weight: 600 !important;
-    color: #ffffff !important;
-}
-
-/* ── Reset geral ── */
+/* ── Reset e Base ── */
 html, body, [class*="css"], .stApp {
     font-family: 'Inter', sans-serif !important;
-    background-color: #f0f4f8 !important;
-    color: #1a1f2e !important;
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
 }
 
-/* ── Remove padding do container principal ── */
-.block-container {
-    padding: 0 !important;
-    max-width: 100% !important;
-}
-section[data-testid="stMain"] > div:first-child {
-    padding: 0 !important;
-}
-
-/* ── Cabeçalho ── */
-.app-header {
-    background: linear-gradient(135deg, #0f2044 0%, #1a3a6e 100%);
-    padding: 0 52px;
-    height: 68px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    box-shadow: 0 2px 16px rgba(0,0,0,0.25);
-    margin-bottom: 0;
-}
-.app-header-brand { display: flex; align-items: center; gap: 18px; }
-.app-header-badge {
-    background: rgba(255,255,255,0.12);
-    border: 1px solid rgba(255,255,255,0.25);
-    border-radius: 6px;
-    padding: 5px 13px;
-    font-size: 10px;
-    font-weight: 700;
-    color: #a8c4f0;
-    letter-spacing: 1.8px;
-    text-transform: uppercase;
-}
-.app-header-title { font-size: 17px; font-weight: 700; color: #fff; margin: 0; }
-.app-header-sub   { font-size: 12px; color: #7fa8d4; margin: 2px 0 0 0; }
-
-/* ── Área do formulário ── */
-.form-wrapper {
-    padding: 28px 52px 16px 52px;
-}
+/* Esconder o Header Padrão do Streamlit */
+header[data-testid="stHeader"] { display: none !important; }
 
 /* ── Containers com borda (st.container border=True) ── */
 div[data-testid="stVerticalBlock"]:has(.custom-border-marker) {
     background-color: #ffffff !important;
-    border: none !important;
-    outline: 2px solid #2563eb !important;
-    outline-offset: -2px !important;
-    border-radius: 12px !important;
-    box-shadow: 0 4px 18px rgba(37,99,235,0.08) !important;
-    padding: 24px 28px !important;
-    margin-bottom: 30px !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 16px !important;
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -4px rgba(0,0,0,0.05) !important;
+    padding: 24px !important;
+    margin-bottom: 24px !important;
 }
 
-/* ── Título das seções (fora do container) ── */
+/* ── Título das seções ── */
 .section-title {
-    font-size: 13px !important;
+    font-size: 16px !important;
     font-weight: 700 !important;
-    color: #1a3a6e !important;
-    text-transform: uppercase !important;
-    letter-spacing: 1.2px !important;
+    color: #1e293b !important;
     margin-top: 15px !important;
-    margin-bottom: 10px !important;
+    margin-bottom: -10px !important;
     display: flex !important;
     align-items: center !important;
     gap: 8px !important;
-}
-
-/* ── Barra de ações (rodapé do formulário) ── */
-.action-bar {
-    background: #ffffff;
-    border-top: 1px solid #dde3ed;
-    padding: 18px 52px;
-    box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
-}
-
-/* ── Inputs, Selects e Date/Time ── */
-div[data-testid="stTextInput"] input,
-div[data-testid="stTextArea"] textarea,
-div[data-testid="stDateInput"] input,
-div[data-testid="stTimeInput"] input,
-div[data-baseweb="select"] > div,
-div[data-baseweb="base-input"] input {
-    background-color: #f8fafc !important;
-    border: 1px solid #cbd5e1 !important;
-    border-radius: 8px !important;
-    color: #1a1f2e !important;
-    font-size: 14px !important;
-    font-family: 'Inter', sans-serif !important;
-}
-
-/* ── Corrigir fundo preto nos inputs ativos/focados ── */
-div[data-testid="stTextInput"] input:focus,
-div[data-testid="stTextArea"] textarea:focus,
-div[data-testid="stDateInput"] input:focus,
-div[data-testid="stTimeInput"] input:focus,
-div[data-baseweb="base-input"] input:focus {
-    border-color: #2563eb !important;
-    box-shadow: 0 0 0 3px rgba(37,99,235,0.1) !important;
-    background-color: #ffffff !important;
-}
-
-/* ── Forçar Popups, Dropdowns e Calendários no tema claro ── */
-div[data-baseweb="popover"],
-div[data-baseweb="popover"] *,
-div[data-baseweb="calendar"],
-div[data-baseweb="calendar"] * {
-    background-color: #ffffff !important;
-    color: #1a1f2e !important;
-}
-
-/* Corrigir dia selecionado no calendário */
-div[data-baseweb="calendar"] [aria-selected="true"] {
-    background-color: #2563eb !important;
-    color: #ffffff !important;
-}
-
-/* ── Garantir exibição da seta/indicador nos Selects e Calendários ── */
-div[data-baseweb="select"] svg,
-div[data-testid="stDateInput"] svg,
-div[data-testid="stTimeInput"] svg {
-    fill: #64748b !important;
-    stroke: #64748b !important;
-    color: #64748b !important;
-    opacity: 1 !important;
-}
-
-/* ── Labels ── */
-div[data-testid="stTextInput"] label,
-div[data-testid="stTextArea"] label,
-div[data-testid="stSelectbox"] label,
-div[data-testid="stDateInput"] label,
-div[data-testid="stTimeInput"] label {
-    font-size: 11px !important;
-    font-weight: 600 !important;
-    color: #64748b !important;
-    letter-spacing: 0.5px !important;
-    text-transform: uppercase !important;
+    padding-left: 8px;
+    border-left: 4px solid #2563eb;
 }
 
 /* ── Botão primário ── */
 .stButton > button[kind="primary"] {
     background: #2563eb !important;
     border: none !important;
-    border-radius: 8px !important;
-    font-weight: 600 !important;
-    font-size: 14px !important;
+    border-radius: 12px !important;
+    font-weight: 700 !important;
+    font-size: 15px !important;
     color: #fff !important;
-    padding: 11px 24px !important;
-    box-shadow: 0 2px 8px rgba(37,99,235,0.3) !important;
-    transition: all 0.15s !important;
-    width: 100% !important;
+    padding: 12px 24px !important;
+    transition: all 0.2s !important;
 }
 .stButton > button[kind="primary"]:hover {
     background: #1d4ed8 !important;
-    box-shadow: 0 4px 16px rgba(37,99,235,0.4) !important;
-    transform: translateY(-1px) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 10px 15px -3px rgba(37,99,235,0.3) !important;
 }
 
 /* ── Botão secundário ── */
 .stButton > button[kind="secondary"] {
-    background: #fff !important;
-    border: 1.5px solid #2563eb !important;
-    border-radius: 8px !important;
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 12px !important;
     font-weight: 600 !important;
-    font-size: 14px !important;
-    color: #2563eb !important;
-    padding: 11px 24px !important;
-    transition: all 0.15s !important;
-    width: 100% !important;
-}
-.stButton > button[kind="secondary"]:hover {
-    background: #eff6ff !important;
-    transform: translateY(-1px) !important;
-}
-
-/* ── Download ── */
-.stDownloadButton > button {
-    background: linear-gradient(135deg, #059669, #10b981) !important;
-    color: #fff !important;
-    border: none !important;
-    border-radius: 8px !important;
-    font-weight: 700 !important;
-    font-size: 15px !important;
-    width: 100% !important;
-    padding: 14px !important;
-    box-shadow: 0 4px 16px rgba(5,150,105,0.3) !important;
+    color: #334155 !important;
     transition: all 0.2s !important;
 }
-.stDownloadButton > button:hover { transform: translateY(-1px) !important; }
+.stButton > button[kind="secondary"]:hover {
+    background: #e2e8f0 !important;
+}
 
-/* ── File uploader: esconder texto "200MB" e instrução ── */
-div[data-testid="stFileUploaderDropzoneInstructions"] { display: none !important; }
-div[data-testid="stFileUploader"] small { display: none !important; }
-div[data-testid="stFileUploader"] section > button {
-    background: #eff6ff !important;
-    border: 1.5px solid #2563eb !important;
-    border-radius: 8px !important;
-    color: #2563eb !important;
-    font-weight: 600 !important;
+/* ── Inputs e Selects ── */
+div[data-testid="stTextInput"] input,
+div[data-testid="stTextArea"] textarea,
+div[data-testid="stDateInput"] input,
+div[data-testid="stTimeInput"] input,
+div[data-baseweb="select"] > div {
+    background-color: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 10px !important;
+    box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05) !important;
+    color: #0f172a !important;
+}
+
+/* Labels */
+div[data-testid="stTextInput"] label,
+div[data-testid="stTextArea"] label,
+div[data-testid="stSelectbox"] label,
+div[data-testid="stDateInput"] label,
+div[data-testid="stTimeInput"] label {
     font-size: 13px !important;
-    padding: 8px 18px !important;
-}
-div[data-testid="stFileUploader"] section {
-    padding: 8px 12px !important;
-    border-radius: 8px !important;
-    background: #f8fafc !important;
-    border: 1.5px dashed #cbd5e1 !important;
-    gap: 8px !important;
+    font-weight: 600 !important;
+    color: #475569 !important;
+    margin-bottom: 4px !important;
 }
 
-/* ── Alertas ── */
-div[data-testid="stSuccess"] {
-    background: #f0fdf4 !important;
-    border: 1px solid #86efac !important;
-    border-radius: 8px !important;
+/* Expanders */
+.streamlit-expanderHeader {
+    background-color: #ffffff !important;
+    border-radius: 12px !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #1e293b !important;
+    font-weight: 600 !important;
 }
-div[data-testid="stError"] {
-    background: #fef2f2 !important;
-    border: 1px solid #fca5a5 !important;
-    border-radius: 8px !important;
-}
-
-/* ── A4 ── */
-.a4-wrapper {
-    background: #dde3ed;
-    border-radius: 10px;
-    padding: 28px;
-    min-height: 85vh;
-}
-.a4-sheet {
-    background: #fff;
-    color: #1a1f2e;
-    width: 21cm;
-    min-height: 29.7cm;
-    margin: 0 auto;
-    padding: 2.5cm 3cm;
-    font-family: Arial, sans-serif;
-    font-size: 11pt;
-    line-height: 1.6;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+div[data-testid="stExpander"] {
+    border: none !important;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05) !important;
+    border-radius: 12px !important;
+    overflow: hidden;
 }
 
-/* ── Scrollbar ── */
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: #f1f5f9; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+/* Sidebar */
+section[data-testid="stSidebar"] {
+    background-color: #ffffff !important;
+    border-right: 1px solid #e2e8f0 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
