@@ -1404,7 +1404,8 @@ with main:
                     "4": "O local dos fatos encontrava-se parcialmente isolado, com delimitação perimetral incipiente e insuficiente para {descrever_falha_isolamento}. Concomitantemente, verificou-se a preservação apenas parcial do ambiente, evidenciada por {descrever_alteracao}. Esta conjugação de ineficiência no resguardo do perímetro e a consequente alteração do estado original mitigam a robustez da análise da dinâmica delitiva, configurando inobservância parcial aos ritos de inalterabilidade exigidos pela legislação processual penal vigente.",
                     "5": "No momento do acionamento e chegada desta equipe, o sítio pericial encontrava-se desprovido de qualquer isolamento e totalmente devassado. Constatou-se a ausência absoluta de preservação do estado de coisas, com evidências de intensa e irreversível modificação do cenário original, notadamente por {descrever_alteracao}. Tal inobservância à garantia da inalterabilidade do sítio (Art. 6º, I e Art. 169 do CPP) compromete severamente as etapas iniciais da Cadeia de Custódia, prejudicando o estabelecimento inconteste do nexo de causalidade e limitando os achados periciais apenas aos vestígios intrínsecos."
                 }
-                iso_key = st.session_state.get("iso_estado", "1")[0]
+                iso_val_str = str(st.session_state.get("iso_estado", "1")).strip()
+                iso_key = iso_val_str[0] if iso_val_str else "1"
                 iso_text = tpl_isolamento.get(iso_key, "")
                 iso_text = iso_text.replace("{meio_de_isolamento}", st.session_state.get("iso_meio") or "________")
                 iso_text = iso_text.replace("{descrever_alteracao}", st.session_state.get("iso_alteracao") or "________")
@@ -1428,7 +1429,8 @@ with main:
                     "7": "As lesões constatadas na(s) vítima(s) são características daquelas produzidas por energia de ordem física (ação térmica), comprovadamente decorrentes de exposição a {agente_compativel}, {achado_extra}."
                 }
                 
-                inst_k = st.session_state.get("inst_acao", "1")[0]
+                inst_val_str = str(st.session_state.get("inst_acao", "1")).strip()
+                inst_k = inst_val_str[0] if inst_val_str else "1"
                 inst_text = tpl_instrumento.get(inst_k, "")
                 agente_val = st.session_state.get("inst_agente") or "________"
                 extra_val = st.session_state.get("inst_extra") or "________"
