@@ -135,19 +135,22 @@ div[data-testid="stVerticalBlock"]:has(.custom-border-marker) {
     margin-bottom: 24px !important;
 }
 
+
 /* ── Título das seções ── */
 .section-title {
-    font-size: 16px !important;
-    font-weight: 700 !important;
-    color: #1e293b !important;
-    margin-top: 15px !important;
-    margin-bottom: -10px !important;
+    font-size: 22px !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    margin-top: 12px !important;
+    margin-bottom: 20px !important;
+    padding-bottom: 10px !important;
+    border-bottom: 2px solid #cbd5e1 !important;
     display: flex !important;
     align-items: center !important;
-    gap: 8px !important;
-    padding-left: 8px;
-    border-left: 4px solid #2563eb;
+    gap: 10px !important;
+    line-height: 1.3 !important;
 }
+
 
 /* ── Botão primário ── */
 .stButton > button[kind="primary"] {
