@@ -715,6 +715,25 @@ with main:
         else:
             st.info("Nenhuma ocorrência sincronizada encontrada na planilha do Google Drive.")
 
+    def sanitize_datetime_state():
+        from datetime import datetime, date, time
+        for k in ["data_pericia_input", "data_atendimento_input"]:
+            if k in st.session_state and isinstance(st.session_state[k], str):
+                try:
+                    st.session_state[k] = datetime.strptime(st.session_state[k], "%Y-%m-%d").date()
+                except:
+                    st.session_state[k] = date.today()
+        for k in ["horario", "horario_atendimento"]:
+            if k in st.session_state and isinstance(st.session_state[k], str):
+                try:
+                    s = st.session_state[k]
+                    if len(s.split(':')) == 2: s += ":00"
+                    st.session_state[k] = datetime.strptime(s, "%H:%M:%S").time()
+                except:
+                    st.session_state[k] = None
+
+    sanitize_datetime_state()
+
     if st.session_state["current_page"] == "1. DA OCORRÊNCIA":
         # ══ SEÇÃO 1: DA OCORRÊNCIA ════════════════════════════
         st.markdown('<div class="section-title">📋 &nbsp; Da Ocorrência</div>', unsafe_allow_html=True)
