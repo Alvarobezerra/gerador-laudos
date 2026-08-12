@@ -504,18 +504,19 @@ with main:
 
     sanitize_datetime_state()
 
+    
     st.markdown('''
     <div class="app-header">
       <div class="app-header-brand">
-        <div class="app-header-badge">ICRIM / NPT</div>
         <div>
           <div class="app-header-title">Laudo de Local de Morte Violenta</div>
-          <div class="app-header-sub">Instituto de Criminalística de Imperatriz &nbsp;|&nbsp; Polícia Civil — Maranhão</div>
+          <div class="app-header-sub">Instituto de Criminalística de Imperatriz &nbsp;|&nbsp; Perícia Oficial do Maranhão</div>
         </div>
       </div>
     </div>
-    <div style="height:24px"></div>
+    <div style="height:16px"></div>
     ''', unsafe_allow_html=True)
+
 
     @st.dialog("☁️ Carregar Ocorrência (Banco Local / Nuvem)")
     def modal_ocorrencias():
@@ -593,46 +594,35 @@ with main:
         else:
             st.info("Nenhuma ocorrência encontrada no banco.")
 
-    col_btn1, col_btn2 = st.columns([1, 1])
-    if col_btn2.button("☁️ Sincronizar Ocorrências (App)", use_container_width=True):
-        modal_ocorrencias()
+    
 
+    
     def render_action_buttons(prefix):
         st.markdown('<br>', unsafe_allow_html=True)
-        btn1, btn2, btn3 = st.columns(3)
-
+        btn1, btn2, btn3, btn4 = st.columns([1, 1.2, 1, 1.3])
+        
         # 1. Salvar no Sistema
         if btn1.button("💾 Salvar no Sistema", use_container_width=True, key=f"btn_salvar_{prefix}"):
-            import sqlite3
-            import json
-            import os
-            DB_PATH = os.path.join(os.path.dirname(
-                __file__), "banco_laudos.sqlite")
+            import sqlite3, json, os, datetime
+            DB_PATH = os.path.join(os.path.dirname(__file__), "banco_laudos.sqlite")
             dados = {}
             for k, v in st.session_state.items():
                 if k not in ['autenticado', 'preview_open']:
                     try:
-                        import datetime
                         if isinstance(v, (datetime.date, datetime.time)):
                             dados[k] = v.isoformat()
                         else:
                             dados[k] = v
-                    except:
-                        pass
-
-            # Formata dicts complexos
-            if 'vitimas' in st.session_state:
-                dados['vitimas'] = st.session_state['vitimas']
-            if 'vestigios' in st.session_state:
-                dados['vestigios'] = st.session_state['vestigios']
-            if 'fotos' in st.session_state:
-                dados['fotos'] = st.session_state['fotos']
+                    except: pass
+            if 'vitimas' in st.session_state: dados['vitimas'] = st.session_state['vitimas']
+            if 'vestigios' in st.session_state: dados['vestigios'] = st.session_state['vestigios']
+            if 'fotos' in st.session_state: dados['fotos'] = st.session_state['fotos']
 
             try:
                 conn = sqlite3.connect(DB_PATH)
                 c = conn.cursor()
                 mob_id = dados.get('ocorrencia', f"laudo_{len(dados)}")
-                now_str = datetime.now().isoformat()
+                now_str = datetime.datetime.now().isoformat()
                 c.execute('INSERT OR REPLACE INTO laudos (mobile_id, data_sincronizacao, dados_json) VALUES (?, ?, ?)',
                           (mob_id, now_str, json.dumps(dados)))
                 conn.commit()
@@ -642,17 +632,21 @@ with main:
                 st.error(f"Erro ao salvar: {e}")
 
         # 2. Gerar Laudo
-        gerar_clicked = btn2.button(
-            "🚀 Gerar Laudo (.docx)", type="primary", use_container_width=True, key=f"btn_gerar_{prefix}")
-
+        gerar_clicked = btn2.button("🚀 Gerar Laudo (.docx)", type="primary", use_container_width=True, key=f"btn_gerar_{prefix}")
+        
         # 3. Limpar Formulário
-        if btn3.button("🗑️ Limpar Formulário", use_container_width=True, key=f"btn_limpar_{prefix}"):
+        if btn3.button("🗑️ Limpar", use_container_width=True, key=f"btn_limpar_{prefix}"):
             for k in list(st.session_state.keys()):
                 if k not in ['autenticado']:
                     del st.session_state[k]
             st.rerun()
-
+            
+        # 4. Sincronizar (Modal)
+        if btn4.button("☁️ Sincronizar App", use_container_width=True, key=f"btn_sync_{prefix}"):
+            modal_ocorrencias()
+            
         return gerar_clicked
+
 
     gerar_top = render_action_buttons("top")
     st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
