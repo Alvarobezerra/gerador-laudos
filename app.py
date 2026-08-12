@@ -63,7 +63,7 @@ st.markdown("""
 /* ── Reset e Base ── */
 html, body, [class*="css"], .stApp {
     font-family: 'Inter', sans-serif !important;
-    background-color: #f8fafc !important;
+    background-color: #e2e8f0 !important;
     color: #0f172a !important;
 }
 
@@ -435,41 +435,6 @@ if st.session_state.preview_open:
 # ── Margem lateral para conteúdo ──────────────────────────
 _, main, _ = st.columns([0.04, 0.92, 0.04])
 
-# ── Sidebar Sincronização Mobile ──────────────────────────
-with st.sidebar:
-    st.markdown("## AÇÕES DA OCORRÊNCIA")
-    st.divider()
-    st.markdown("<br><br><br>", unsafe_allow_html=True)
-    if st.button("Gerar Prévia do Laudo", use_container_width=True, type="primary"):
-        st.session_state.preview_open = True
-        st.rerun()
-
-    st.divider()
-    if st.button("💾 Salvar Rascunho no Banco", use_container_width=True):
-        DB_PATH = os.path.join(os.path.dirname(__file__), "banco_laudos.sqlite")
-        try:
-            import time, sqlite3, json
-            from datetime import datetime, date, time as dt_time
-            conn = sqlite3.connect(DB_PATH)
-            c = conn.cursor()
-            c.execute('CREATE TABLE IF NOT EXISTS laudos (id INTEGER PRIMARY KEY AUTOINCREMENT, mobile_id TEXT UNIQUE, data_sincronizacao TEXT, dados_json TEXT)')
-            mob_id = st.session_state.get('ocorrencia')
-            if not mob_id:
-                mob_id = f"manual_{int(time.time())}"
-            now_str = datetime.now().isoformat()
-            data_to_save = {}
-            for k, v in st.session_state.items():
-                if isinstance(v, (str, int, float, bool, list, dict)):
-                    data_to_save[k] = v
-                elif isinstance(v, (date, datetime, dt_time)):
-                    data_to_save[k] = str(v)
-            c.execute('INSERT OR REPLACE INTO laudos (mobile_id, data_sincronizacao, dados_json) VALUES (?, ?, ?)',
-                      (mob_id, now_str, json.dumps(data_to_save)))
-            conn.commit()
-            conn.close()
-            st.success("✅ Formulário salvo no banco local!")
-        except Exception as e:
-            st.error(f"Erro ao salvar: {e}")
 
 GAS_URL = "https://script.google.com/macros/s/AKfycbx9N4hidxHbfAUUpHVDAOadZBF5SRB9x9UzC0nt3k-wW0pgLThCHwBQsaUMJjtcTL1QJw/exec"
 
@@ -1004,6 +969,47 @@ with main:
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
     with st.container(border=True):
+
+        st.markdown('<br><hr><br>', unsafe_allow_html=True)
+        st.markdown('### 🛠️ Ações Extras')
+        colA, colB, colC = st.columns(3)
+        with colA:
+            if st.button("👁️ Gerar Prévia", use_container_width=True, type="secondary"):
+                st.session_state.preview_open = True
+                st.rerun()
+        with colB:
+            if st.button("💾 Salvar Rascunho", use_container_width=True, type="secondary"):
+                import os, sqlite3, json, time
+                from datetime import datetime, date, time as dt_time
+                DB_PATH = os.path.join(os.path.dirname(__file__), "banco_laudos.sqlite")
+                try:
+                    conn = sqlite3.connect(DB_PATH)
+                    c = conn.cursor()
+                    c.execute('CREATE TABLE IF NOT EXISTS laudos (id INTEGER PRIMARY KEY AUTOINCREMENT, mobile_id TEXT UNIQUE, data_sincronizacao TEXT, dados_json TEXT)')
+                    mob_id = st.session_state.get('ocorrencia')
+                    if not mob_id:
+                        mob_id = f"manual_{int(time.time())}"
+                    now_str = datetime.now().isoformat()
+                    data_to_save = {}
+                    for k, v in st.session_state.items():
+                        if isinstance(v, (str, int, float, bool, list, dict)):
+                            data_to_save[k] = v
+                        elif isinstance(v, (date, datetime, dt_time)):
+                            data_to_save[k] = str(v)
+                    c.execute('INSERT OR REPLACE INTO laudos (mobile_id, data_sincronizacao, dados_json) VALUES (?, ?, ?)',
+                              (mob_id, now_str, json.dumps(data_to_save)))
+                    conn.commit()
+                    conn.close()
+                    st.success("✅ Formulário salvo no banco local!")
+                except Exception as e:
+                    st.error(f"Erro ao salvar: {e}")
+        with colC:
+            if st.button("🗑️ Limpar Formulário", use_container_width=True, type="secondary"):
+                for k in list(st.session_state.keys()):
+                    if k not in ["autoridades", "preview_open", "docx_bytes", "docx_filename"]:
+                        del st.session_state[k]
+                st.rerun()
+        st.markdown('<br>', unsafe_allow_html=True)
         ba1, ba2 = st.columns(2)
 
         with ba1:
@@ -1358,4 +1364,5 @@ with main:
                 file_name=st.session_state.docx_filename,
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 use_container_width=True,
+
             )
