@@ -413,6 +413,7 @@ if st.session_state.preview_open:
                 """, unsafe_allow_html=True)
 
 
+else:
     # ═══════════════════════════════════════════════════════════
     # MODO FORMULÁRIO (LOGIN DESABILITADO TEMPORARIAMENTE)
     # ═══════════════════════════════════════════════════════════
