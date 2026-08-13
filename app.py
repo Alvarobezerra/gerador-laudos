@@ -120,13 +120,14 @@ def convert_bytes_to_pil_images(file_bytes, file_name, file_type=""):
 
 
 def carregar_dados_teste_exemplo():
-    """Carrega dados de teste completos (3 vestígios, 2 vítimas, 3 considerações extras, quesitos, dinâmica e 3 fotos reais do guia) no session_state."""
+    """Carrega dados de teste completos para TODOS os campos do laudo e 3 fotos reais."""
     import datetime, os, base64
 
     # 1. Ocorrência & Cabeçalho
     st.session_state["num_laudo"] = "2026-ICRIM-0987"
     st.session_state["ocorrencia"] = "BO-12345/2026"
     st.session_state["requisicao"] = "REQ-5544/2026"
+    st.session_state["referencia"] = "IP 9988-77/2026 - 1ª DP Imperatriz"
     st.session_state["perito"] = "Dr. Carlos Eduardo Silva - Perito Criminal"
     st.session_state["destino"] = "1ª Delegacia de Polícia Civil de Imperatriz"
     st.session_state["autoridades"] = ["Dr. João Mendes - Delegado de Polícia"]
@@ -145,14 +146,17 @@ def carregar_dados_teste_exemplo():
     st.session_state["area"] = "Via Pública Comercial / Asfalto"
     st.session_state["pavimento"] = "Asfalto"
     st.session_state["delimitacoes"] = "Local aberto, delimitado ao norte pela via pública e ao sul por imóvel comercial."
-    st.session_state["iso_estado"] = "1. Local Preservado e Isolado"
-    st.session_state["iso_meio"] = "fita zebrada e cordão de isolamento da Polícia Militar"
-    st.session_state["clima"] = "Seco / Ensolarado"
-    st.session_state["visibilidade"] = "Boa (Luz Natural Solar)"
+    st.session_state["isolamento"] = "Preservado e Isolado"
+    st.session_state["clima"] = "Aberto diurno"
+    st.session_state["visibilidade"] = "Ampla"
     st.session_state["iluminacao"] = "Natural"
     st.session_state["equipe_pm"] = "VTR 14-020 (Sgt. Oliveira e Sd. Santos)"
     st.session_state["equipe_pc"] = "Equipe de Homicídios (Inv. Lima)"
     st.session_state["autoridade_local"] = "Dr. João Mendes - Delegado de Polícia"
+
+    # Laudo de Necropsia
+    st.session_state["numero_laudo_necropsia"] = "123/2026 - IML Imperatriz"
+    st.session_state["resultado_laudo_IML"] = "Traumatismo cranioencefálico grave por PAF e choque hipovolêmico"
 
     # 3. 2 Vítimas (Lista e Widgets)
     v1 = {
@@ -215,28 +219,45 @@ def carregar_dados_teste_exemplo():
 
     # 4. 3 Vestígios (Lista e Widgets)
     ves1 = {
-        "tipo": "Outro",
+        "tipo": "Elemento Balístico",
+        "elemento_tipo": "Estojo",
+        "quantidade": "1",
+        "envelope": "ENV-001234",
         "localizacao": "Solo asfáltico, a 1,20m da Vítima #1",
-        "descricao": "Estojo percutido e deflagrado de munição calibre 9mm, marca CBC, recolhido sob o envelope de segurança nº 001234."
+        "descricao": "Estojo percutido e deflagrado de munição calibre 9mm, marca CBC, arrecadado no solo asfáltico."
     }
     ves2 = {
-        "tipo": "Outro",
+        "tipo": "Manchas de Sangue",
+        "categoria": "1. FORMAÇÃO PASSIVA",
+        "subtipo": "Empoçamento",
         "localizacao": "Solo abaixo da região cefálica da Vítima #1",
-        "descricao": "Poça de sangue com padrão de formação por gravidade e projeção secundária, coletada amostragem sob o envelope nº 001235."
+        "descricao": "Poça de sangue com padrão de formação por gravidade e projeção secundária, coletada amostragem sob o envelope nº ENV-001235."
     }
     ves3 = {
-        "tipo": "Outro",
+        "tipo": "Elemento Balístico",
+        "elemento_tipo": "Projétil",
+        "quantidade": "1",
+        "envelope": "ENV-001236",
         "localizacao": "Próximo ao meio-fio, a 3,50m da Vítima #2",
-        "descricao": "Projétil de arma de fogo deformado (jaquetado 9mm) recolhido para exame de balística forense sob o envelope nº 001236."
+        "descricao": "Projétil de arma de fogo deformado (jaquetado 9mm) recolhido para exame de balística forense."
     }
     st.session_state["vestigios"] = [ves1, ves2, ves3]
 
     for i, ves in enumerate([ves1, ves2, ves3]):
         st.session_state[f"vest_tipo_{i}"] = ves["tipo"]
+        if ves.get("elemento_tipo"): st.session_state[f"vest_elem_{i}"] = ves["elemento_tipo"]
+        if ves.get("quantidade"): st.session_state[f"vest_qtd_{i}"] = ves["quantidade"]
+        if ves.get("envelope"): st.session_state[f"vest_env_{i}"] = ves["envelope"]
+        if ves.get("categoria"): st.session_state[f"vest_cat_{i}"] = ves["categoria"]
+        if ves.get("subtipo"): st.session_state[f"vest_sub_{i}"] = ves["subtipo"]
         st.session_state[f"vest_loc_{i}"] = ves["localizacao"]
         st.session_state[f"vest_desc_{i}"] = ves["descricao"]
 
-    # Instrumento
+    # Section 4 - Isolamento & Preservação e Instrumento
+    st.session_state["iso_estado"] = "1. Local Preservado e Isolado"
+    st.session_state["iso_meio"] = "fita zebrada e cordão de isolamento da Polícia Militar"
+    st.session_state["iso_meio_ui"] = "fita zebrada e cordão de isolamento da Polícia Militar"
+
     st.session_state["inst_acao"] = "1. Perfurocontundente (Ex: Projétil de Arma de Fogo - PAF)"
     st.session_state["inst_agente"] = "projéteis de arma de fogo (PAF)"
     st.session_state["inst_extra"] = "com a recuperação de um projétil de arma de fogo durante o exame perinecroscópico e confirmação de disparo a curta distância"
