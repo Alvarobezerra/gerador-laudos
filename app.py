@@ -125,7 +125,7 @@ def call_gemini_text(prompt, system_instruction=""):
         import google.generativeai as genai
         genai.configure(api_key=key)
 
-        models = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
+        models = ["gemini-1.5-flash", "gemini-1.5-pro"]
         for m in models:
             try:
                 model = genai.GenerativeModel(
@@ -175,7 +175,7 @@ def call_gemini_vision(prompt, image_input, mime_type="image/jpeg", json_mode=Fa
         if json_mode:
             generation_config["response_mime_type"] = "application/json"
 
-        models_to_try = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-pro-vision"]
+        models_to_try = ["gemini-1.5-flash", "gemini-1.5-pro"]
 
         contents = [prompt]
         if isinstance(image_input, list):
