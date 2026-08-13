@@ -211,6 +211,60 @@ def call_gemini_vision(prompt, image_input, mime_type="image/jpeg", json_mode=Fa
         return None, str(err)
 
 
+
+def ler_anotacoes_livres_gemini(texto_bruto):
+    """
+    Analisa anotações livres/brutas de campo usando Gemini IA e extrai dicionário estruturado.
+    """
+    prompt = f"""
+Você é um perito criminalístico especialista em estruturação de dados de local de crime.
+Examine as anotações livres/brutas fornecidas pelo perito e extraia os campos no formato JSON estrito:
+
+{{
+  "num_laudo": "Número do laudo se mencionado",
+  "ocorrencia": "Número da ocorrência/BO",
+  "requisicao": "Número da requisição",
+  "perito": "Nome do perito relator",
+  "autoridade_local": "Nome do delegado ou autoridade presente",
+  "endereco": "Endereço completo do local",
+  "ponto_referencia": "Ponto de referência",
+  "area": "Descrição do tipo de área/pavimento",
+  "delimitacoes": "Delimitações/limites físicos do local",
+  "equipe_pm": "Equipe da Polícia Militar presente",
+  "equipe_pc": "Equipe da Polícia Civil presente",
+  "vitima_nome": "Nome da vítima se constar",
+  "vitima_vestes": "Descrição das vestes da vítima",
+  "vitima_posicao": "Posição/decúbito do cadáver",
+  "vitima_lesoes": "Descrição das lesões na vítima",
+  "vestigios_resumo": "Resumo dos vestígios encontrados",
+  "dinamica_fatos": "Esboço ou rascunho da dinâmica dos fatos"
+}}
+
+Anotações do perito:
+{texto_bruto}
+
+Retorne APENAS o JSON estrito. Se algum dado não estiver mencionado, retorne string vazia.
+"""
+
+    res, err = call_gemini_text(prompt, system_instruction="Você é um assistente pericial de estruturação de dados. Responda apenas com JSON estrito.")
+    if err or not res:
+        return {}, err or "Sem resposta da IA"
+
+    import json, re
+    cleaned = res.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+    try:
+        return json.loads(cleaned), None
+    except Exception as e:
+        match = re.search(r"\{[\s\S]*\}", res)
+        if match:
+            try: return json.loads(match.group(0)), None
+            except: pass
+        return {}, f"Erro ao decodificar dados da IA: {e}"
+
+
 def ler_requisicao_gemini_vision(file_bytes, file_name, file_type=""):
     """
     Lê uma Requisição Pericial (PDF ou Imagem) com Gemini Vision e retorna (extracted_text, dados_dict, error_msg).
@@ -1343,6 +1397,45 @@ with main:
         st.markdown(
             '<div class="section-title">📋 &nbsp; Da Ocorrência</div>', unsafe_allow_html=True)
         with st.container():
+            
+            with st.expander("📝 Bloco de Notas / Rascunho Livre de Campo (Auto-Preenchimento por IA)", expanded=False):
+                st.markdown("<p style='font-size:13px; color:#475569;'>Cole ou digite suas anotações brutas de campo (anotações do celular, rascunhos, transcrições) e clique no botão para que a IA Gemini estruture e preencha o laudo automaticamente.</p>", unsafe_allow_html=True)
+                raw_notes = st.text_area("Anotações de Campo do Perito", placeholder="Ex: ocorrencia 1234, perito carlos, local rua das flores 50, corpo masculino de brucos com ferimento por PAF na parietal...", height=120, key="txt_raw_field_notes")
+                if st.button("🤖 Processar Rascunho e Preencher Laudo com IA", type="primary", key="btn_parse_raw_notes", use_container_width=True):
+                    if not raw_notes.strip():
+                        st.warning("⚠️ Insira o texto das anotações antes de processar.")
+                    else:
+                        with st.spinner("Analisando rascunho de campo com a IA Gemini..."):
+                            dados_parsed, err_p = ler_anotacoes_livres_gemini(raw_notes)
+                            if err_p:
+                                st.error(f"Erro ao processar anotações: {err_p}")
+                            elif dados_parsed:
+                                count_fields = 0
+                                mapping = {
+                                    "num_laudo": "num_laudo", "ocorrencia": "ocorrencia", "requisicao": "requisicao",
+                                    "perito": "perito", "autoridade_local": "autoridade_local", "endereco": "endereco",
+                                    "ponto_referencia": "ponto_referencia", "area": "area", "delimitacoes": "delimitacoes",
+                                    "equipe_pm": "equipe_pm", "equipe_pc": "equipe_pc", "dinamica_fatos": "dinamica_fatos"
+                                }
+                                for k_json, k_state in mapping.items():
+                                    if dados_parsed.get(k_json):
+                                        st.session_state[k_state] = dados_parsed[k_json]
+                                        count_fields += 1
+                                
+                                if dados_parsed.get("vitima_nome") or dados_parsed.get("vitima_vestes") or dados_parsed.get("vitima_lesoes"):
+                                    if "vitimas" in st.session_state and st.session_state["vitimas"]:
+                                        v0 = st.session_state["vitimas"][0]
+                                        if dados_parsed.get("vitima_nome"): v0["nome"] = dados_parsed["vitima_nome"]
+                                        if dados_parsed.get("vitima_vestes"): v0["vestes"] = dados_parsed["vitima_vestes"]
+                                        if dados_parsed.get("vitima_posicao"): v0["posicao"] = dados_parsed["vitima_posicao"]
+                                        if dados_parsed.get("vitima_lesoes"): v0["lesoes"] = [dados_parsed["vitima_lesoes"]]
+                                        count_fields += 1
+                                
+                                st.success(f"✅ Sucesso! {count_fields} campo(s) preenchido(s) automaticamente no laudo:")
+                                st.json(dados_parsed)
+                                st.rerun()
+
+
             with st.expander("📄 Leitor Automático de Requisição Pericial (PDF / Imagem)", expanded=False):
                 if get_gemini_api_key():
                     st.info("✨ Leitor Gemini Vision Ativo: Extração multimodal inteligente de Delegacia, Delegado, Ocorrência, Requisição e Quesitos.")
