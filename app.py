@@ -1295,11 +1295,11 @@ with main:
             st.rerun()
             
         # 4. Buscar Ocorrências (Modal)
-        if btn4.button("🔍 Buscar Ocorrências", use_container_width=True, key=f"btn_sync_{prefix}"):
+        if btn4.button("🔍 Buscar", use_container_width=True, key=f"btn_sync_{prefix}"):
             modal_ocorrencias()
 
         # 5. Auditoria de Inconsistências (Checkup do Laudo)
-        if btn5.button("🔍 Auditoria de Inconsistências (Checkup)", use_container_width=True, key=f"btn_audit_{prefix}"):
+        if btn5.button("🔍 Auditoria", use_container_width=True, key=f"btn_audit_{prefix}"):
             modal_auditoria_inconsistencias()
             
         return gerar_clicked
