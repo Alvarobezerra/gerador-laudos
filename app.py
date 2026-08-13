@@ -1330,9 +1330,89 @@ with main:
         else:
             st.info("Pasta 'vestigio sangue' não localizada.")
 
+    
+SUGESTOES_FILE = os.path.join(os.path.dirname(__file__), "sugestoes.json")
+
+def carregar_sugestoes():
+    if os.path.exists(SUGESTOES_FILE):
+        try:
+            with open(SUGESTOES_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+def salvar_sugestoes(lista):
+    try:
+        with open(SUGESTOES_FILE, "w", encoding="utf-8") as f:
+            json.dump(lista, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        st.error(f"Erro ao salvar sugestões: {e}")
+        return False
+
+@st.dialog("💬 Central de Sugestões, Erros e Melhorias")
+def modal_sugestoes():
+    sugestoes = carregar_sugestoes()
+    tab1, tab2 = st.tabs(["➕ Cadastrar Sugestão / Erro", f"📋 Acompanhar Sugestões ({len(sugestoes)})"])
+    
+    with tab1:
+        st.markdown("Use este formulário para reportar bugs, divergências ou sugerir novas melhorias para o sistema:")
+        tipo = st.selectbox("Tipo de Comunicação", ["💡 Sugestão de Melhoria", "🐛 Reportar Erro / Problema", "✨ Nova Funcionalidade", "Outro"], key="sug_tipo")
+        titulo = st.text_input("Título / Resumo", placeholder="Ex: Ajustar layout dos cartões de vestígios", key="sug_titulo")
+        autor = st.text_input("Seu Nome / Perito", value=st.session_state.get("perito", ""), placeholder="Ex: Dr. Carlos", key="sug_autor")
+        descricao = st.text_area("Descrição detalhada", placeholder="Descreva com detalhes a sua sugestão ou o erro observado...", height=100, key="sug_desc")
+        
+        if st.button("🚀 Cadastrar Sugestão", type="primary", use_container_width=True, key="btn_cadastrar_sugestao"):
+            if not titulo.strip() or not descricao.strip():
+                st.warning("⚠️ Por favor, preencha o título e a descrição da sugestão.")
+            else:
+                import datetime
+                novo_item = {
+                    "id": datetime.datetime.now().strftime("%Y%m%d%H%M%S"),
+                    "data": datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
+                    "tipo": tipo,
+                    "titulo": titulo.strip(),
+                    "autor": autor.strip() if autor.strip() else "Perito Anônimo",
+                    "descricao": descricao.strip(),
+                    "status": "🟡 Pendente"
+                }
+                sugestoes.insert(0, novo_item)
+                salvar_sugestoes(sugestoes)
+                st.success("✅ Sua sugestão foi cadastrada com sucesso! Você pode acompanhar o status na aba 'Acompanhar Sugestões'.")
+                st.rerun()
+                
+    with tab2:
+        if not sugestoes:
+            st.info("Nenhuma sugestão cadastrada até o momento.")
+        else:
+            st.markdown("##### 📋 Sugestões Cadastradas e Acompanhamento de Status")
+            opcoes_status = ["🟡 Pendente", "🔵 Em Análise", "🟠 Em Desenvolvimento", "🟢 Concluído / Executado", "🔴 Não Aplicável"]
+            
+            for idx, item in enumerate(sugestoes):
+                with st.expander(f"{item.get('status', '🟡 Pendente')} | {item.get('titulo')} ({item.get('data')})"):
+                    st.markdown(f"**Tipo:** {item.get('tipo')}")
+                    st.markdown(f"**Autor:** {item.get('autor')}")
+                    st.markdown(f"**Descrição:**\n{item.get('descricao')}")
+                    st.markdown("---")
+                    st.markdown("**⚙️ Alterar Status (Administrador):**")
+                    col_st1, col_st2 = st.columns([3, 1])
+                    with col_st1:
+                        curr_st = item.get("status", "🟡 Pendente")
+                        curr_idx = opcoes_status.index(curr_st) if curr_st in opcoes_status else 0
+                        novo_st = st.selectbox("Status", opcoes_status, index=curr_idx, key=f"sel_st_{item['id']}_{idx}")
+                    with col_st2:
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        if st.button("Salvar", key=f"btn_save_st_{item['id']}_{idx}", use_container_width=True):
+                            sugestoes[idx]["status"] = novo_st
+                            salvar_sugestoes(sugestoes)
+                            st.success("Status atualizado!")
+                            st.rerun()
+
+
     def render_action_buttons(prefix):
         st.markdown('<br>', unsafe_allow_html=True)
-        btn1, btn2, btn3, btn4, btn5 = st.columns([1, 1.2, 0.9, 1.2, 1.6])
+        btn1, btn2, btn3, btn4, btn5, btn6 = st.columns([1, 1.2, 0.9, 1.1, 1.1, 1.2])
         
         # 1. Salvar no Sistema
         if btn1.button("💾 Salvar", use_container_width=True, key=f"btn_salvar_{prefix}"):
@@ -1382,6 +1462,10 @@ with main:
         # 5. Auditoria de Inconsistências (Checkup do Laudo)
         if btn5.button("🔍 Auditoria", use_container_width=True, key=f"btn_audit_{prefix}"):
             modal_auditoria_inconsistencias()
+
+        # 6. Sugestões & Melhorias
+        if btn6.button("💡 Sugestões", use_container_width=True, key=f"btn_sugestoes_{prefix}"):
+            modal_sugestoes()
             
         return gerar_clicked
 
