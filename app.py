@@ -2277,6 +2277,36 @@ with main:
                 st.session_state["resultado_laudo_IML"] = st.text_input("Resultado do Laudo IML", value=st.session_state.get(
                     "resultado_laudo_IML", ""), placeholder="Ex: traumatismo cranioencefálico por PAF")
 
+            num_nec = st.session_state.get("numero_laudo_necropsia") or "[Nº LAUDO IML]"
+            res_nec = st.session_state.get("resultado_laudo_IML") or "[RESULTADO / CAUSA MORTIS DO IML]"
+            sugerido_nec = f"Conforme consta no Laudo de Necropsia nº {num_nec}, lavrado pelos peritos do Instituto de Medicina Legal (IML), a causa mortis da(s) vítima(s) decorreu de: {res_nec}."
+
+            last_nec_sig = st.session_state.get("last_nec_sig", "")
+            curr_nec_sig = f"{num_nec}_{res_nec}"
+            if last_nec_sig != curr_nec_sig or "necropsia_texto_personalizado" not in st.session_state or not st.session_state["necropsia_texto_personalizado"]:
+                st.session_state["necropsia_texto_personalizado"] = sugerido_nec
+                st.session_state["last_nec_sig"] = curr_nec_sig
+
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+            c_nec_t1, c_nec_t2 = st.columns([3, 1])
+            with c_nec_t1:
+                st.markdown("<label style='font-size:13px; font-weight:600; color:#1e293b;'>📄 Minuta / Texto do Laudo de Necropsia (Edição Direta)</label>", unsafe_allow_html=True)
+            with c_nec_t2:
+                if st.button("🔄 Restaurar Minuta Necropsia", key="btn_reset_nec_text", use_container_width=True):
+                    st.session_state["necropsia_texto_personalizado"] = sugerido_nec
+                    st.session_state["last_nec_sig"] = curr_nec_sig
+                    st.rerun()
+
+            nec_custom = st.text_area(
+                "Texto sobre Laudo de Necropsia",
+                value=st.session_state.get("necropsia_texto_personalizado", sugerido_nec),
+                height=90,
+                key="necropsia_texto_ui",
+                label_visibility="collapsed",
+                help="Edite livremente o texto do Laudo de Necropsia que constará no laudo oficial."
+            )
+            st.session_state["necropsia_texto_personalizado"] = nec_custom
+
             st.divider()
             st.subheader("d) Instrumento Utilizado")
 
@@ -2329,9 +2359,49 @@ with main:
             st.session_state["inst_extra"] = st.text_area(
                 "Achados Extras / Observações do Instrumento", value=st.session_state.get("inst_extra", ""), help=placeholders_extras.get(inst_key, ""))
 
+            agente_val = st.session_state.get("inst_agente") or "[AGENTE COMPATÍVEL]"
+            extra_val = st.session_state.get("inst_extra") or "[ACHADOS EXTRAS / OBSERVAÇÕES]"
+
+            tpl_instrumento_ui = {
+                "1": f"As lesões constatadas na(s) vítima(s) são características daquelas produzidas por instrumento em ação perfurocontundente, inequivocamente produzidas por projéteis de arma de fogo (PAF), {extra_val}.",
+                "2": f"As lesões constatadas na(s) vítima(s) são características daquelas produzidas por instrumento em ação cortante (feridas incisas), comprovadamente produzidas por deslizamento de gume afiado, compatível com {agente_val}, {extra_val}.",
+                "3": f"As lesões constatadas na(s) vítima(s) são características daquelas produzidas por instrumento em ação perfurante (feridas punctórias), comprovadamente produzidas por agente de ponta fina, compatível com {agente_val}, {extra_val}.",
+                "4": f"As lesões constatadas na(s) vítima(s) são características daquelas produzidas por instrumento em ação perfurocortante (feridas perfuroincisas), comprovadamente produzidas por arma branca dotada de ponta e gume(s), compatível com {agente_val}, {extra_val}.",
+                "5": f"As lesões constatadas na(s) vítima(s) são características daquelas produzidas por instrumento em ação contundente (feridas contusas / equimoses / fraturas), comprovadamente produzidas por choque ou impacto contra superfície rígida, compatível com {agente_val}, {extra_val}.",
+                "6": f"As lesões constatadas na(s) vítima(s) são características daquelas produzidas por instrumento em ação cortocontundente (feridas contuso-incisas), comprovadamente produzidas por agente dotado de massa expressiva e gume, compatível com {agente_val}, {extra_val}.",
+                "7": f"As lesões constatadas na(s) vítima(s) são características daquelas produzidas por energia de ordem física (ação térmica), comprovadamente decorrentes de exposição a {agente_val}, {extra_val}."
+            }
+
+            sugerido_inst = tpl_instrumento_ui.get(inst_key, tpl_instrumento_ui["1"])
+            sugerido_inst = sugerido_inst.replace("..", ".").replace(", .", ".").strip()
+
+            last_inst_sig = st.session_state.get("last_inst_sig", "")
+            curr_inst_sig = f"{inst_key}_{agente_val}_{extra_val}"
+            if last_inst_sig != curr_inst_sig or "inst_texto_personalizado" not in st.session_state or not st.session_state["inst_texto_personalizado"]:
+                st.session_state["inst_texto_personalizado"] = sugerido_inst
+                st.session_state["last_inst_sig"] = curr_inst_sig
+
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+            c_ins_t1, c_ins_t2 = st.columns([3, 1])
+            with c_ins_t1:
+                st.markdown("<label style='font-size:13px; font-weight:600; color:#1e293b;'>📄 Minuta / Texto do Instrumento Utilizado (Edição Direta)</label>", unsafe_allow_html=True)
+            with c_ins_t2:
+                if st.button("🔄 Restaurar Minuta Instrumento", key="btn_reset_inst_text", use_container_width=True):
+                    st.session_state["inst_texto_personalizado"] = sugerido_inst
+                    st.session_state["last_inst_sig"] = curr_inst_sig
+                    st.rerun()
+
+            inst_custom = st.text_area(
+                "Texto sobre Instrumento Utilizado",
+                value=st.session_state.get("inst_texto_personalizado", sugerido_inst),
+                height=110,
+                key="inst_texto_ui",
+                label_visibility="collapsed",
+                help="Visualize e edite livremente o texto formal do instrumento que constará no laudo oficial."
+            )
+            st.session_state["inst_texto_personalizado"] = inst_custom
+
             st.divider()
-            
-            st.markdown("<hr style='margin:20px 0; border-color:#cbd5e1;'>", unsafe_allow_html=True)
             st.subheader("Considerações Técnicas Adicionais")
             st.markdown("<p style='font-size:13px; color:#475569; margin-bottom:12px;'>Adicione quantas considerações personalizadas desejar. A numeração por letras (e, f, g...) será gerada automaticamente em ordem crescente.</p>", unsafe_allow_html=True)
 
@@ -2845,7 +2915,7 @@ with main:
             # Cleanup if extra ends with double period or unformatted spaces
             inst_text = inst_text.replace("..", ".")
 
-            VARS["instrumento_detalhes"] = inst_text
+            VARS["instrumento_detalhes"] = st.session_state.get("inst_texto_personalizado") or inst_text
             # Map consideracoes_extras in VARS for DOCX
             formatted_extras = []
             for idx_extra, item_extra in enumerate(st.session_state.get("consideracoes_extras", [])):
@@ -2861,7 +2931,7 @@ with main:
 
             # Also map to target paragraph if tag is missing in docx
             VARS[
-                "d. As lesões constatadas nas vítimas são características daquelas produzidas por instrumento em ação perfurocontundente, inequivocamente produzidas por projéteis de arma de fogo (PAF), com a recuperação de um projétil em cada cadáver durante a necrópsia."] = f"d. {inst_text}"
+                "d. As lesões constatadas nas vítimas são características daquelas produzidas por instrumento em ação perfurocontundente, inequivocamente produzidas por projéteis de arma de fogo (PAF), com a recuperação de um projétil em cada cadáver durante a necrópsia."] = f"d. {st.session_state.get('inst_texto_personalizado') or inst_text}"
 
             def replace_para(para, var_dict):
                 for k, v in var_dict.items():
