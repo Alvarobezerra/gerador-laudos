@@ -173,6 +173,7 @@ for key, default in {
     "docx_bytes":    None,
     "docx_filename": "",
     "quesitos":      "",
+    "quesitos_list": [{"pergunta": "", "resposta": ""}],
     "vitimas":       [{"nome": "", "cad": "", "documento": "", "sexo": "", "data_nascimento": None, "filicao": "", "naturalidade": "",
                        "vestes": "", "pertences": "", "localizacao": "", "posicao": "", "cabeca": "", "membros": "",
                        "fenomenos": "", "lesoes": [""]}],
@@ -726,7 +727,7 @@ with main:
                     item = opcoes[escolhida]
                     data_obj = item["dados"]
                     for k, v in data_obj.items():
-                        if k not in ["vitimas", "vestigios", "fotos"]:
+                        if k not in ["vitimas", "vestigios", "fotos", "quesitos_list"]:
                             st.session_state[k] = v
                     if "vitimas" in data_obj:
                         st.session_state["vitimas"] = data_obj["vitimas"]
@@ -734,6 +735,8 @@ with main:
                         st.session_state["vestigios"] = data_obj["vestigios"]
                     if "fotos" in data_obj:
                         st.session_state["fotos"] = data_obj["fotos"]
+                    if "quesitos_list" in data_obj:
+                        st.session_state["quesitos_list"] = data_obj["quesitos_list"]
                     st.rerun()
             else:
                 st.warning("⚠️ Nenhuma ocorrência encontrada para o filtro informado.")
@@ -743,6 +746,22 @@ with main:
     
 
     
+    
+    @st.dialog("🩸 Guia Visual de Padrões de Manchas de Sangue")
+    def modal_guia_sangue():
+        st.markdown("Utilize as imagens de referência abaixo para guiar a identificação do tipo de mancha de sangue encontrada:")
+        img_dir = os.path.join(os.path.dirname(__file__), "vestigio sangue")
+        if os.path.exists(img_dir):
+            files = [os.path.join(img_dir, f) for f in os.listdir(img_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+            if files:
+                cols = st.columns(2)
+                for idx, img_p in enumerate(files):
+                    with cols[idx % 2]:
+                        st.image(img_p, use_container_width=True, caption=f"Padrão Referência #{idx+1}")
+        else:
+            st.info("Pasta 'vestigio sangue' não localizada.")
+
+
     def render_action_buttons(prefix):
         st.markdown('<br>', unsafe_allow_html=True)
         btn1, btn2, btn3, btn4 = st.columns([1, 1.2, 1, 1.3])
@@ -763,6 +782,7 @@ with main:
             if 'vitimas' in st.session_state: dados['vitimas'] = st.session_state['vitimas']
             if 'vestigios' in st.session_state: dados['vestigios'] = st.session_state['vestigios']
             if 'fotos' in st.session_state: dados['fotos'] = st.session_state['fotos']
+            if 'quesitos_list' in st.session_state: dados['quesitos_list'] = st.session_state['quesitos_list']
 
             try:
                 conn = sqlite3.connect(DB_PATH)
@@ -821,6 +841,9 @@ with main:
                             st.session_state["requisicao"] = dados["requisicao"]
                         if dados.get("quesitos"):
                             st.session_state["quesitos"] = dados["quesitos"]
+                            raw_lines = [q.strip() for q in dados["quesitos"].split("\n") if q.strip()]
+                            if raw_lines:
+                                st.session_state["quesitos_list"] = [{"pergunta": q_line, "resposta": ""} for q_line in raw_lines]
 
                         st.success("✅ Requisição pericial lida com sucesso! Campos preenchidos automaticamente:")
                         st.json(dados)
@@ -843,11 +866,11 @@ with main:
 
             c5, c6, c7, c8 = st.columns(4)
             data_pericia_val = c5.date_input(
-                "Data da Perícia",        value=date.today(), key="data_pericia_input")
+                "Data da Perícia",        value=date.today(), format="DD/MM/YYYY", key="data_pericia_input")
             horario_val = c6.time_input(
                 "Horário da Perícia",     key="horario",      step=300)
             data_atendimento_val = c7.date_input(
-                "Data de Atendimento",    value=date.today(), key="data_atendimento_input")
+                "Data de Atendimento",    value=date.today(), format="DD/MM/YYYY", key="data_atendimento_input")
             horario_atend_val = c8.time_input(
                 "Horário de Atendimento", key="horario_atendimento", step=300)
 
@@ -984,7 +1007,7 @@ with main:
                 if not isinstance(dob_val, date) and dob_val is not None:
                     dob_val = date.today()
                 vit["data_nascimento"] = c_dob.date_input(
-                    "Data de Nascimento", value=dob_val, key=f"vit_dob_{i}")
+                    "Data de Nascimento", value=dob_val, key=f"vit_dob_{i}", format="DD/MM/YYYY")
                 vit["filicao"] = c_fili.text_input("Filiação", value=vit.get(
                     "filicao", ""), key=f"vit_fili_{i}", placeholder="Nome da mãe e/ou pai...")
                 vit["naturalidade"] = c_nat.text_input("Naturalidade", value=vit.get(
@@ -1315,14 +1338,38 @@ with main:
 
             st.divider()
             st.subheader("e) Quesitos e Respostas")
-            st.text_area(
-                "Quesitos formulados pela Autoridade Solicitante e Respostas da Perícia",
-                value=st.session_state.get("quesitos", ""),
-                key="quesitos",
-                height=160,
-                placeholder="Ex:\n1. Qual a causa da morte?\nResposta: Traumatismo cranioencefálico decorrente de PAF.\n\n2. Qual o instrumento ou meio que a produziu?\nResposta: Perfurocontundente.",
-                help="Estes quesitos e respostas serão mapeados para a tag {quesitos} no laudo gerado."
-            )
+            st.markdown("<p style='font-size:13px; color:#475569; margin-bottom:12px;'>Gerenciamento de quesitos formulados pela Autoridade Solicitante e respostas da perícia.</p>", unsafe_allow_html=True)
+
+            if "quesitos_list" not in st.session_state or not st.session_state["quesitos_list"]:
+                st.session_state["quesitos_list"] = [{"pergunta": "", "resposta": ""}]
+
+            quesitos_list = st.session_state["quesitos_list"]
+
+            for i, q_item in enumerate(quesitos_list):
+                st.markdown(f"##### ❓ Quesito #{i+1}")
+                q_item["pergunta"] = st.text_input(
+                    "Pergunta",
+                    value=q_item.get("pergunta", ""),
+                    key=f"quesito_perg_{i}",
+                    placeholder="Ex: Qual a causa da morte?"
+                )
+                q_item["resposta"] = st.text_area(
+                    "Resposta",
+                    value=q_item.get("resposta", ""),
+                    key=f"quesito_resp_{i}",
+                    height=75,
+                    placeholder="Ex: Traumatismo cranioencefálico decorrente de PAF."
+                )
+
+                if len(quesitos_list) > 1:
+                    if st.button(f"🗑️ Remover Quesito #{i+1}", key=f"remove_quesito_{i}", type="secondary"):
+                        st.session_state.quesitos_list.pop(i)
+                        st.rerun()
+                st.markdown("<hr style='margin:16px 0; border-color:#cbd5e1;'>", unsafe_allow_html=True)
+
+            if st.button("➕ Adicionar Quesito", key="btn_add_quesito"):
+                st.session_state.quesitos_list.append({"pergunta": "", "resposta": ""})
+                st.rerun()
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
     with st.container():
@@ -1570,6 +1617,18 @@ with main:
             vestigios_detalhes = "\n\n".join(
                 vestigios_detalhes_list) if vestigios_detalhes_list else "Não foram descritos vestígios."
 
+            quesitos_formatted_list = []
+            for idx_q, q_item in enumerate(st.session_state.get("quesitos_list", []), 1):
+                p_val = q_item.get("pergunta", "").strip()
+                r_val = q_item.get("resposta", "").strip()
+                if p_val or r_val:
+                    p_text = p_val if p_val else "________"
+                    r_text = r_val if r_val else "________"
+                    quesitos_formatted_list.append(f"Quesito {idx_q}: {p_text}\nResposta: {r_text}")
+
+            quesitos_final_str = "\n\n".join(quesitos_formatted_list) if quesitos_formatted_list else "Não foram formulados quesitos específicos."
+            st.session_state["quesitos"] = quesitos_final_str
+
             VARS = {
                 "num_laudo": st.session_state.get("num_laudo", ""),
                 "ocorrencia": st.session_state.get("ocorrencia", ""),
@@ -1601,8 +1660,8 @@ with main:
                 "aut_local": st.session_state.get("autoridade_local", ""),
                 "vitimas_detalhes": vitimas_detalhes,
                 "vestigios_detalhes": vestigios_detalhes,
-                "quesitos": st.session_state.get("quesitos", "Não foram formulados quesitos específicos."),
-                "quesitos_respostas": st.session_state.get("quesitos", "Não foram formulados quesitos específicos."),
+                "quesitos": quesitos_final_str,
+                "quesitos_respostas": quesitos_final_str,
             }
             VARS.update(individual_vars)
             VARS["tipo_local"] = tipo_local_val
