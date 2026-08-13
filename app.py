@@ -287,6 +287,12 @@ def render_action_buttons(prefix):
         if btn6.button("💡 Sugestões", use_container_width=True, key=f"btn_sugestoes_{prefix}"):
             modal_sugestoes()
 
+        # 7. Dados de Teste (Preenchimento Automático)
+        if btn7.button("🧪 Teste", use_container_width=True, key=f"btn_teste_{prefix}", help="Preenche todos os campos com dados de teste e 3 fotos para testar a geração do laudo"):
+            carregar_dados_teste_exemplo()
+            st.success("✅ Todos os campos e 3 fotos de teste foram preenchidos com sucesso!")
+            st.rerun()
+
         return gerar_clicked
 
 
