@@ -1398,81 +1398,83 @@ with main:
             '<div class="section-title">📋 &nbsp; Da Ocorrência</div>', unsafe_allow_html=True)
         with st.container():
             
-            with st.expander("📝 Bloco de Notas / Rascunho Livre de Campo (Auto-Preenchimento por IA)", expanded=False):
-                st.markdown("<p style='font-size:13px; color:#475569;'>Cole ou digite suas anotações brutas de campo (anotações do celular, rascunhos, transcrições) e clique no botão para que a IA Gemini estruture e preencha o laudo automaticamente.</p>", unsafe_allow_html=True)
-                raw_notes = st.text_area("Anotações de Campo do Perito", placeholder="Ex: ocorrencia 1234, perito carlos, local rua das flores 50, corpo masculino de brucos com ferimento por PAF na parietal...", height=120, key="txt_raw_field_notes")
-                if st.button("🤖 Processar Rascunho e Preencher Laudo com IA", type="primary", key="btn_parse_raw_notes", use_container_width=True):
-                    if not raw_notes.strip():
-                        st.warning("⚠️ Insira o texto das anotações antes de processar.")
+            col_tools1, col_tools2 = st.columns(2)
+            with col_tools1:
+                with st.expander("📝 Bloco de Notas / Rascunho Livre (IA)", expanded=False):
+                    st.markdown("<p style='font-size:13px; color:#475569;'>Cole ou digite suas anotações brutas de campo (anotações do celular, rascunhos, transcrições) e a IA Gemini preencherá o laudo automaticamente.</p>", unsafe_allow_html=True)
+                    raw_notes = st.text_area("Anotações de Campo do Perito", placeholder="Ex: ocorrencia 1234, perito carlos, local rua das flores 50, corpo masculino de brucos...", height=120, key="txt_raw_field_notes")
+                    if st.button("🤖 Processar Rascunho com IA", type="primary", key="btn_parse_raw_notes", use_container_width=True):
+                        if not raw_notes.strip():
+                            st.warning("⚠️ Insira o texto das anotações antes de processar.")
+                        else:
+                            with st.spinner("Analisando rascunho com IA Gemini..."):
+                                dados_parsed, err_p = ler_anotacoes_livres_gemini(raw_notes)
+                                if err_p:
+                                    st.error(f"Erro ao processar anotações: {err_p}")
+                                elif dados_parsed:
+                                    count_fields = 0
+                                    mapping = {
+                                        "num_laudo": "num_laudo", "ocorrencia": "ocorrencia", "requisicao": "requisicao",
+                                        "perito": "perito", "autoridade_local": "autoridade_local", "endereco": "endereco",
+                                        "ponto_referencia": "ponto_referencia", "area": "area", "delimitacoes": "delimitacoes",
+                                        "equipe_pm": "equipe_pm", "equipe_pc": "equipe_pc", "dinamica_fatos": "dinamica_fatos"
+                                    }
+                                    for k_json, k_state in mapping.items():
+                                        if dados_parsed.get(k_json):
+                                            st.session_state[k_state] = dados_parsed[k_json]
+                                            count_fields += 1
+                                    
+                                    if dados_parsed.get("vitima_nome") or dados_parsed.get("vitima_vestes") or dados_parsed.get("vitima_lesoes"):
+                                        if "vitimas" in st.session_state and st.session_state["vitimas"]:
+                                            v0 = st.session_state["vitimas"][0]
+                                            if dados_parsed.get("vitima_nome"): v0["nome"] = dados_parsed["vitima_nome"]
+                                            if dados_parsed.get("vitima_vestes"): v0["vestes"] = dados_parsed["vitima_vestes"]
+                                            if dados_parsed.get("vitima_posicao"): v0["posicao"] = dados_parsed["vitima_posicao"]
+                                            if dados_parsed.get("vitima_lesoes"): v0["lesoes"] = [dados_parsed["vitima_lesoes"]]
+                                            count_fields += 1
+                                    
+                                    st.success(f"✅ Sucesso! {count_fields} campo(s) preenchido(s):")
+                                    st.json(dados_parsed)
+                                    st.rerun()
+
+            with col_tools2:
+                with st.expander("📄 Leitor de Requisição (PDF / Imagem)", expanded=False):
+                    if get_gemini_api_key():
+                        st.info("✨ Gemini Vision: Extração inteligente de Delegacia, Delegado, Ocorrência, Requisição e Quesitos.")
                     else:
-                        with st.spinner("Analisando rascunho de campo com a IA Gemini..."):
-                            dados_parsed, err_p = ler_anotacoes_livres_gemini(raw_notes)
-                            if err_p:
-                                st.error(f"Erro ao processar anotações: {err_p}")
-                            elif dados_parsed:
-                                count_fields = 0
-                                mapping = {
-                                    "num_laudo": "num_laudo", "ocorrencia": "ocorrencia", "requisicao": "requisicao",
-                                    "perito": "perito", "autoridade_local": "autoridade_local", "endereco": "endereco",
-                                    "ponto_referencia": "ponto_referencia", "area": "area", "delimitacoes": "delimitacoes",
-                                    "equipe_pm": "equipe_pm", "equipe_pc": "equipe_pc", "dinamica_fatos": "dinamica_fatos"
-                                }
-                                for k_json, k_state in mapping.items():
-                                    if dados_parsed.get(k_json):
-                                        st.session_state[k_state] = dados_parsed[k_json]
-                                        count_fields += 1
-                                
-                                if dados_parsed.get("vitima_nome") or dados_parsed.get("vitima_vestes") or dados_parsed.get("vitima_lesoes"):
-                                    if "vitimas" in st.session_state and st.session_state["vitimas"]:
-                                        v0 = st.session_state["vitimas"][0]
-                                        if dados_parsed.get("vitima_nome"): v0["nome"] = dados_parsed["vitima_nome"]
-                                        if dados_parsed.get("vitima_vestes"): v0["vestes"] = dados_parsed["vitima_vestes"]
-                                        if dados_parsed.get("vitima_posicao"): v0["posicao"] = dados_parsed["vitima_posicao"]
-                                        if dados_parsed.get("vitima_lesoes"): v0["lesoes"] = [dados_parsed["vitima_lesoes"]]
-                                        count_fields += 1
-                                
-                                st.success(f"✅ Sucesso! {count_fields} campo(s) preenchido(s) automaticamente no laudo:")
-                                st.json(dados_parsed)
-                                st.rerun()
+                        st.caption("💡 Para extração com IA Gemini Vision, verifique o arquivo CHAVE.txt.")
+                    
+                    req_file = st.file_uploader("Carregar Requisição (PDF / Imagem)", type=["pdf", "png", "jpg", "jpeg", "bmp", "tiff"], key="req_file_input")
+                    if req_file is not None:
+                        file_bytes = req_file.read()
+                        extracted_text, dados = ler_requisicao_pericial(file_bytes, req_file.name, req_file.type)
+                        if dados:
+                            if dados.get("delegacia"):
+                                st.session_state["destino"] = dados["delegacia"]
+                            if dados.get("delegado"):
+                                del_nome = dados["delegado"]
+                                if del_nome not in st.session_state.autoridades:
+                                    st.session_state.autoridades.append(del_nome)
+                                st.session_state["autoridade_sel"] = del_nome
+                            if dados.get("ocorrencia"):
+                                st.session_state["ocorrencia"] = dados["ocorrencia"]
+                            if dados.get("requisicao"):
+                                st.session_state["requisicao"] = dados["requisicao"]
+                            if dados.get("quesitos"):
+                                st.session_state["quesitos"] = dados["quesitos"]
+                                raw_lines = [q.strip() for q in dados["quesitos"].split("\n") if q.strip()]
+                                if raw_lines:
+                                    st.session_state["quesitos_list"] = [{"pergunta": q_line, "resposta": ""} for q_line in raw_lines]
 
-
-            with st.expander("📄 Leitor Automático de Requisição Pericial (PDF / Imagem)", expanded=False):
-                if get_gemini_api_key():
-                    st.info("✨ Leitor Gemini Vision Ativo: Extração multimodal inteligente de Delegacia, Delegado, Ocorrência, Requisição e Quesitos.")
-                else:
-                    st.caption("💡 Para extração com inteligência artificial multimodal Gemini Vision, verifique o arquivo CHAVE.txt.")
-                
-                req_file = st.file_uploader("Carregar Requisição Pericial (PDF ou Imagem)", type=["pdf", "png", "jpg", "jpeg", "bmp", "tiff"], key="req_file_input")
-                if req_file is not None:
-                    file_bytes = req_file.read()
-                    extracted_text, dados = ler_requisicao_pericial(file_bytes, req_file.name, req_file.type)
-                    if dados:
-                        if dados.get("delegacia"):
-                            st.session_state["destino"] = dados["delegacia"]
-                        if dados.get("delegado"):
-                            del_nome = dados["delegado"]
-                            if del_nome not in st.session_state.autoridades:
-                                st.session_state.autoridades.append(del_nome)
-                            st.session_state["autoridade_sel"] = del_nome
-                        if dados.get("ocorrencia"):
-                            st.session_state["ocorrencia"] = dados["ocorrencia"]
-                        if dados.get("requisicao"):
-                            st.session_state["requisicao"] = dados["requisicao"]
-                        if dados.get("quesitos"):
-                            st.session_state["quesitos"] = dados["quesitos"]
-                            raw_lines = [q.strip() for q in dados["quesitos"].split("\n") if q.strip()]
-                            if raw_lines:
-                                st.session_state["quesitos_list"] = [{"pergunta": q_line, "resposta": ""} for q_line in raw_lines]
-
-                        orig = dados.get("origem", "Automático")
-                        st.success(f"✅ Requisição pericial lida com sucesso! ({orig}) Campos preenchidos automaticamente:")
-                        st.json(dados)
-                    elif extracted_text:
-                        st.warning("⚠️ Texto extraído da requisição, mas nenhum campo de formulário reconhecido automaticamente por regex.")
-                        with st.expander("Ver Texto Extraído Completo"):
-                            st.text(extracted_text)
-                    else:
-                        st.error("❌ Não foi possível extrair texto do arquivo fornecido.")
+                            orig = dados.get("origem", "Automático")
+                            st.success(f"✅ Requisição lida ({orig}):")
+                            st.json(dados)
+                        elif extracted_text:
+                            st.warning("⚠️ Texto extraído da requisição, mas nenhum campo de formulário reconhecido por regex.")
+                            with st.expander("Ver Texto Extraído"):
+                                st.text(extracted_text)
+                        else:
+                            st.error("❌ Não foi possível extrair texto do arquivo fornecido.")
 
             c1, c2, c3, c4 = st.columns(4)
             num_laudo = c1.text_input(
