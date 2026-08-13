@@ -229,7 +229,8 @@ def carregar_dados_teste_exemplo():
     ]
 
 
-    def render_action_buttons(prefix):
+
+def render_action_buttons(prefix):
         st.markdown('<br>', unsafe_allow_html=True)
         btn1, btn2, btn3, btn4, btn5, btn6, btn7 = st.columns([1, 1.2, 0.9, 1.1, 1.1, 1.1, 1.2])
 
