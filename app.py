@@ -119,7 +119,7 @@ def convert_bytes_to_pil_images(file_bytes, file_name, file_type=""):
 def call_gemini_text(prompt, system_instruction=""):
     key = get_gemini_api_key()
     if not key:
-        return None, "Chave GEMINI_API_KEY não configurada. Defina a chave na barra lateral ou em variáveis de ambiente."
+        return None, "Chave GEMINI_API_KEY não configurada. Verifique se o arquivo CHAVE.txt está presente."
     last_err = None
     try:
         import google.generativeai as genai
@@ -165,7 +165,7 @@ def call_gemini_vision(prompt, image_input, mime_type="image/jpeg", json_mode=Fa
     """
     key = get_gemini_api_key()
     if not key:
-        return None, "Chave GEMINI_API_KEY não configurada. Defina a chave na barra lateral ou variáveis de ambiente."
+        return None, "Chave GEMINI_API_KEY não configurada. Verifique se o arquivo CHAVE.txt está presente."
 
     try:
         import google.generativeai as genai
@@ -1306,27 +1306,8 @@ with main:
 
 
     
-    with st.sidebar:
-        st.markdown("### 🤖 Google Gemini Vision IA")
-        if get_gemini_api_key():
-            st.success("✅ Gemini API Conectado")
-        else:
-            st.warning("⚠️ Chave Gemini API Ausente")
-
-        st.text_input(
-            "Chave GEMINI_API_KEY",
-            type="password",
-            key="user_gemini_key",
-            help="Cole sua chave da Google Gemini API para habilitar a extração inteligente de documentos e geração de legendas periciais."
-        )
-        st.markdown("---")
-        st.caption("Suporta Gemini Vision (gemini-1.5-flash, gemini-2.0-flash) para PDF e Imagens.")
-
-    with st.expander("⚙️ Configurações da IA Gemini (Opcional)", expanded=False):
-        st.text_input("Chave API do Gemini (AI Studio)", type="password", key="gemini_api_key_input", help="Caso não configurada nos segredos do servidor, insira sua chave da API Gemini aqui.")
-        if get_gemini_api_key(): st.success("✅ Chave Gemini ativa!")
-        else: st.info("ℹ️ Cole sua chave API gratuita do Google AI Studio para ativar leitores inteligentes Vision e redação automática.")
-
+    
+    
     gerar_top = render_action_buttons("top")
     st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
 
@@ -1339,7 +1320,7 @@ with main:
                 if get_gemini_api_key():
                     st.info("✨ Leitor Gemini Vision Ativo: Extração multimodal inteligente de Delegacia, Delegado, Ocorrência, Requisição e Quesitos.")
                 else:
-                    st.caption("💡 Para extração com inteligência artificial multimodal Gemini Vision, adicione sua chave GEMINI_API_KEY na barra lateral.")
+                    st.caption("💡 Para extração com inteligência artificial multimodal Gemini Vision, verifique o arquivo CHAVE.txt.")
                 
                 req_file = st.file_uploader("Carregar Requisição Pericial (PDF ou Imagem)", type=["pdf", "png", "jpg", "jpeg", "bmp", "tiff"], key="req_file_input")
                 if req_file is not None:
@@ -1517,7 +1498,7 @@ with main:
                 if nec_file is not None:
                     if st.button("✨ Processar Necropsia com Gemini Vision", type="primary", key="btn_process_necropsia", use_container_width=True):
                         if not get_gemini_api_key():
-                            st.error("⚠️ Chave GEMINI_API_KEY não configurada. Defina sua chave na barra lateral ou nas configurações.")
+                            st.error("⚠️ Chave GEMINI_API_KEY não configurada. Verifique se o arquivo CHAVE.txt está presente.")
                         else:
                             with st.spinner("Analisando Laudo de Necropsia com Gemini Vision..."):
                                 nec_bytes = nec_file.read()
@@ -2048,7 +2029,7 @@ with main:
                 with c_gal_btn:
                     if st.button("✨ Gerar Legendas com IA Gemini", type="primary", key="btn_gemini_legendas_todas", use_container_width=True):
                         if not get_gemini_api_key():
-                            st.error("⚠️ Chave GEMINI_API_KEY não configurada. Defina sua chave na barra lateral.")
+                            st.error("⚠️ Chave GEMINI_API_KEY não configurada. Verifique se o arquivo CHAVE.txt está presente.")
                         else:
                             with st.spinner("✨ Analisando fotografias e gerando legendas periciais formais com Gemini Vision..."):
                                 count_sucesso = 0
