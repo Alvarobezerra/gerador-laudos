@@ -1234,7 +1234,7 @@ with main:
     
     @st.dialog("🩸 Guia Visual de Manchas de Sangue")
     def modal_guia_sangue():
-        st.markdown("Utilize as imagens de referência abaixo para guiar a identificação do tipo de mancha de sangue encontrada:")
+        st.markdown("Utilize as imagens de referência abaixo para guiar a identificação do tipo de mancha. Passe o mouse sobre a imagem e use o ícone ⛶ (tela cheia) ou selecione um padrão abaixo para ampliar em alta resolução:")
         img_dir = os.path.join(os.path.dirname(__file__), "vestigio sangue")
         if os.path.exists(img_dir):
             files = sorted([os.path.join(img_dir, f) for f in os.listdir(img_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))])
@@ -1243,11 +1243,15 @@ with main:
                 for idx, img_p in enumerate(files):
                     with cols[idx % 2]:
                         st.image(img_p, use_container_width=True, caption=f"Padrão Referência #{idx+1}")
-            else:
-                st.warning("Nenhuma imagem encontrada na pasta 'vestigio sangue'.")
+                
+                st.markdown("<hr style='margin:16px 0; border-color:#e2e8f0;'>", unsafe_allow_html=True)
+                st.markdown("##### 🔍 Ampliar Padrão Específico")
+                opcoes_img = {f"Padrão Referência #{i+1}": img_p for i, img_p in enumerate(files)}
+                sel = st.selectbox("Escolha o padrão para ampliar em tela cheia:", list(opcoes_img.keys()), key="sel_zoom_sangue")
+                if sel:
+                    st.image(opcoes_img[sel], use_container_width=True, caption=f"Visualização Detalhada Ampliada — {sel}")
         else:
             st.info("Pasta 'vestigio sangue' não localizada.")
-
 
     def render_action_buttons(prefix):
         st.markdown('<br>', unsafe_allow_html=True)
