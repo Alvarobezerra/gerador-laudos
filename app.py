@@ -44,6 +44,113 @@ def data_extenso(d):
 def data_simples(d): return d.strftime("%d/%m/%Y")
 def v(val): return str(val).strip() if str(val).strip() else "________"
 
+def ler_requisicao_pericial(file_bytes, file_name, file_type=""):
+    """
+    Extrai texto e campos (Delegacia, Delegado, Ocorrência, Requisição, Quesitos)
+    de arquivos de Requisição Pericial em formato PDF ou Imagem.
+    Utiliza pdfplumber, pypdf, pytesseract (OCR) ou regex em texto bruto.
+    """
+    from io import BytesIO
+    import re
+
+    extracted_text = ""
+    file_name_lower = file_name.lower()
+    is_pdf = file_type == "application/pdf" or file_name_lower.endswith(".pdf")
+    is_img = file_type.startswith("image/") or file_name_lower.endswith((".png", ".jpg", ".jpeg", ".bmp", ".tiff"))
+
+    if is_pdf:
+        # 1. Tenta pdfplumber
+        try:
+            import pdfplumber
+            with pdfplumber.open(BytesIO(file_bytes)) as pdf:
+                for page in pdf.pages:
+                    t = page.extract_text()
+                    if t:
+                        extracted_text += t + "\n"
+        except Exception:
+            pass
+
+        # 2. Fallback para pypdf
+        if not extracted_text.strip():
+            try:
+                import pypdf
+                reader = pypdf.PdfReader(BytesIO(file_bytes))
+                for page in reader.pages:
+                    t = page.extract_text()
+                    if t:
+                        extracted_text += t + "\n"
+            except Exception:
+                pass
+
+        # 3. Fallback para OCR caso o PDF seja baseado em imagem digitalizada
+        if not extracted_text.strip():
+            try:
+                import pdfplumber
+                import pytesseract
+                with pdfplumber.open(BytesIO(file_bytes)) as pdf:
+                    for page in pdf.pages:
+                        pil_img = page.to_image(resolution=150).original
+                        try:
+                            t = pytesseract.image_to_string(pil_img, lang="por")
+                        except Exception:
+                            t = pytesseract.image_to_string(pil_img)
+                        if t:
+                            extracted_text += t + "\n"
+            except Exception:
+                pass
+
+    elif is_img:
+        try:
+            import pytesseract
+            from PIL import Image
+            img = Image.open(BytesIO(file_bytes))
+            try:
+                extracted_text = pytesseract.image_to_string(img, lang="por")
+            except Exception:
+                extracted_text = pytesseract.image_to_string(img)
+        except Exception:
+            pass
+
+    # Extração de campos via Regex no texto obtido
+    dados = {}
+    if extracted_text.strip():
+        # Extrai Delegacia / Destino
+        m_del = re.search(r'(?:DELEGACIA(?: DE POLÍCIA)?|UNIDADE SOLICITANTE|ÓRGÃO SOLICITANTE|ORIGEM|DESTINO)[\s:]+([^\n\r]+)', extracted_text, re.IGNORECASE)
+        if not m_del:
+            m_del = re.search(r'(DELEGACIA DE POLÍCIA [^\n\r]+)', extracted_text, re.IGNORECASE)
+        if not m_del:
+            m_del = re.search(r'(DELEGACIA [^\n\r]+)', extracted_text, re.IGNORECASE)
+        if m_del:
+            dados["delegacia"] = m_del.group(1).strip()
+
+        # Extrai Delegado / Autoridade Solicitante
+        m_aut = re.search(r'(?:DELEGAD[OA](?: DE POLÍCIA)?|AUTORIDADE SOLICITANTE|AUTORIDADE POLICIAL|SOLICITANTE)[\s:]+([^\n\r]+)', extracted_text, re.IGNORECASE)
+        if not m_aut:
+            m_aut = re.search(r'(?:Dr[a]?\.\s+)([^\n\r]+)', extracted_text, re.IGNORECASE)
+        if m_aut:
+            dados["delegado"] = m_aut.group(1).strip()
+
+        # Extrai Ocorrência / BO
+        m_oco = re.search(r'(?:OCORRÊNCIA|OCORRENCIA|BOLETIM DE OCORRÊNCIA|BO|Nº OCORRÊNCIA|N° OCORRÊNCIA)[\s\:\.\º\°]*([0-9A-Za-z\/\-\.]+)', extracted_text, re.IGNORECASE)
+        if m_oco:
+            dados["ocorrencia"] = m_oco.group(1).strip()
+
+        # Extrai Requisição
+        m_req = re.search(r'(?:REQUISIÇÃO|REQUISICAO|REQ\.?)[\s\:\.\º\°]*([0-9A-Za-z\/\-\.]+)', extracted_text, re.IGNORECASE)
+        if m_req:
+            dados["requisicao"] = m_req.group(1).strip()
+
+        # Extrai Quesitos
+        m_que = re.search(r'(?:QUESITOS(?: DA AUTORIDADE| FORMULADOS)?|PERGUNTAS)[\s\:\-\n\r]+([\s\S]+?)(?:\n\s*\n[A-Z0-9\s]{4,}:|\Z)', extracted_text, re.IGNORECASE)
+        if m_que:
+            dados["quesitos"] = m_que.group(1).strip()
+        else:
+            num_q = re.findall(r'(\d+[\.\)-]\s*[^\n]+)', extracted_text)
+            if num_q:
+                dados["quesitos"] = "\n".join(num_q)
+
+    return extracted_text, dados
+
 
 # ─────────────────────────────────────────────
 # SESSION STATE
@@ -54,9 +161,10 @@ for key, default in {
     "show_nova_aut": False,
     "docx_bytes":    None,
     "docx_filename": "",
-        "vitimas":       [{"nome": "", "cad": "", "documento": "", "sexo": "", "data_nascimento": None, "filicao": "", "naturalidade": "",
-                           "vestes": "", "pertences": "", "localizacao": "", "posicao": "", "cabeca": "", "membros": "",
-                           "fenomenos": "", "lesoes": [""]}],
+    "quesitos":      "",
+    "vitimas":       [{"nome": "", "cad": "", "documento": "", "sexo": "", "data_nascimento": None, "filicao": "", "naturalidade": "",
+                       "vestes": "", "pertences": "", "localizacao": "", "posicao": "", "cabeca": "", "membros": "",
+                       "fenomenos": "", "lesoes": [""]}],
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -85,8 +193,9 @@ html, body, [class*="css"], .stApp {
 }
 .app-header-brand {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
 }
 .app-header-badge {
     background: #eff6ff;
@@ -508,9 +617,13 @@ with main:
     sanitize_datetime_state()
 
     
-    st.markdown('''
+    logo_b64 = get_logo_base64()
+    logo_html = f'<img src="data:image/png;base64,{logo_b64}" style="height:65px; width:auto; object-fit:contain;" />' if logo_b64 else ''
+
+    st.markdown(f'''
     <div class="app-header">
       <div class="app-header-brand">
+        {logo_html}
         <div>
           <div class="app-header-title">Laudo de Local de Morte Violenta</div>
           <div class="app-header-sub">Instituto de Criminalística de Imperatriz &nbsp;|&nbsp; Perícia Oficial do Maranhão</div>
@@ -577,23 +690,42 @@ with main:
                 pass
 
         if db_laudos:
-            opcoes = {
-                f"Ocorrência {l['dados'].get('ocorrencia', 'S/N')} — {l['dados'].get('perito', 'N/I')} ({l['data'][:16]})": l for l in db_laudos}
-            escolhida = st.selectbox(
-                "Selecione a ocorrência:", list(opcoes.keys()))
-            if st.button("Carregar Dados", use_container_width=True, type="primary"):
-                item = opcoes[escolhida]
-                data_obj = item["dados"]
-                for k, v in data_obj.items():
-                    if k not in ["vitimas", "vestigios", "fotos"]:
-                        st.session_state[k] = v
-                if "vitimas" in data_obj:
-                    st.session_state["vitimas"] = data_obj["vitimas"]
-                if "vestigios" in data_obj:
-                    st.session_state["vestigios"] = data_obj["vestigios"]
-                if "fotos" in data_obj:
-                    st.session_state["fotos"] = data_obj["fotos"]
-                st.rerun()
+            filtro = st.text_input(
+                "🔍 Buscar por perito, ocorrência ou data:",
+                placeholder="Digite para filtrar por perito, ocorrência ou data...",
+                key="filtro_ocorrencias_modal"
+            ).strip().lower()
+
+            db_laudos_filtrados = []
+            for l in db_laudos:
+                oc_val = str(l['dados'].get('ocorrencia', '')).lower()
+                per_val = str(l['dados'].get('perito', '')).lower()
+                dt_val = str(l.get('data', '')).lower()
+                if not filtro or (filtro in oc_val or filtro in per_val or filtro in dt_val):
+                    db_laudos_filtrados.append(l)
+
+            if db_laudos_filtrados:
+                opcoes = {
+                    f"Ocorrência {l['dados'].get('ocorrencia', 'S/N')} — {l['dados'].get('perito', 'N/I')} ({l['data'][:16]})": l
+                    for l in db_laudos_filtrados
+                }
+                escolhida = st.selectbox(
+                    f"Resultados ({len(db_laudos_filtrados)} encontrada(s)):", list(opcoes.keys()))
+                if st.button("Carregar Dados", use_container_width=True, type="primary"):
+                    item = opcoes[escolhida]
+                    data_obj = item["dados"]
+                    for k, v in data_obj.items():
+                        if k not in ["vitimas", "vestigios", "fotos"]:
+                            st.session_state[k] = v
+                    if "vitimas" in data_obj:
+                        st.session_state["vitimas"] = data_obj["vitimas"]
+                    if "vestigios" in data_obj:
+                        st.session_state["vestigios"] = data_obj["vestigios"]
+                    if "fotos" in data_obj:
+                        st.session_state["fotos"] = data_obj["fotos"]
+                    st.rerun()
+            else:
+                st.warning("⚠️ Nenhuma ocorrência encontrada para o filtro informado.")
         else:
             st.info("Nenhuma ocorrência encontrada no banco.")
 
@@ -1143,9 +1275,84 @@ with main:
                 "Achados Extras / Observações do Instrumento", value=st.session_state.get("inst_extra", ""), help=placeholders_extras.get(inst_key, ""))
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
-    with st.container(border=True):
+    with st.container():
+        st.markdown(
+            '<div class="section-title">📷 &nbsp; 5. Fotografias (Apêndice A)</div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown('<span class="custom-border-marker"></span>',
+                        unsafe_allow_html=True)
 
-        st.markdown('<br><hr><br>', unsafe_allow_html=True)
+            if "fotos" not in st.session_state:
+                st.session_state["fotos"] = []
+
+            st.markdown("<p style='font-size:13px; color:#475569; margin-bottom:12px;'>Faça o upload de fotos do local para compor o Apêndice A (Tomadas Fotográficas) do laudo.</p>", unsafe_allow_html=True)
+
+            uploaded_files = st.file_uploader(
+                "Selecione uma ou mais imagens (PNG, JPG, JPEG)",
+                type=["png", "jpg", "jpeg"],
+                accept_multiple_files=True,
+                key="foto_uploader"
+            )
+
+            if uploaded_files:
+                import base64
+                novas_adicionadas = False
+                for up_file in uploaded_files:
+                    filename = up_file.name
+                    if not any(f.get("nome") == filename for f in st.session_state["fotos"]):
+                        bytes_data = up_file.read()
+                        b64_str = base64.b64encode(bytes_data).decode("utf-8")
+                        st.session_state["fotos"].append({
+                            "nome": filename,
+                            "b64": b64_str,
+                            "descricao": f"Visão geral do local ({filename})",
+                            "incluir": True
+                        })
+                        novas_adicionadas = True
+                if novas_adicionadas:
+                    st.toast("📷 Fotografias adicionadas com sucesso!")
+                    st.rerun()
+
+            if st.session_state["fotos"]:
+                st.markdown("<hr style='margin:16px 0; border-color:#e2e8f0;'>", unsafe_allow_html=True)
+                st.markdown(f"##### 🖼️ Galeria de Fotografias ({len(st.session_state['fotos'])} item(ns))")
+
+                indices_para_remover = []
+                for idx_f, foto in enumerate(st.session_state["fotos"]):
+                    col_img, col_info = st.columns([1, 2])
+                    with col_img:
+                        try:
+                            img_bytes = base64.b64decode(foto["b64"])
+                            st.image(img_bytes, use_container_width=True)
+                        except Exception:
+                            st.error("Erro ao carregar imagem")
+                    with col_info:
+                        foto["incluir"] = st.checkbox(
+                            "Incluir no Laudo (.docx)",
+                            value=foto.get("incluir", True),
+                            key=f"foto_inc_{idx_f}"
+                        )
+                        foto["descricao"] = st.text_area(
+                            "Legenda / Descrição da Fotografia",
+                            value=foto.get("descricao", ""),
+                            key=f"foto_desc_{idx_f}",
+                            height=80,
+                            placeholder="Descreva o elemento ou visão registrada nesta foto..."
+                        )
+                        if st.button(f"🗑️ Remover Foto #{idx_f+1}", key=f"btn_del_foto_{idx_f}", type="secondary"):
+                            indices_para_remover.append(idx_f)
+                    st.markdown("<hr style='margin:12px 0; border-color:#cbd5e1;'>", unsafe_allow_html=True)
+
+                if indices_para_remover:
+                    for i in reversed(indices_para_remover):
+                        st.session_state["fotos"].pop(i)
+                    st.rerun()
+
+                if st.button("🗑️ Limpar Todas as Fotografias", type="secondary", key="btn_clear_all_fotos"):
+                    st.session_state["fotos"] = []
+                    st.rerun()
+            else:
+                st.info("Nenhuma fotografia adicionada ainda. Utilize o campo acima para enviar as fotos do laudo.")
 
     # ── BOTÕES INFERIORES ──
     gerar_bottom = render_action_buttons("bottom")
