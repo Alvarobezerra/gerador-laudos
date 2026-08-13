@@ -125,7 +125,7 @@ def call_gemini_text(prompt, system_instruction=""):
         import google.generativeai as genai
         genai.configure(api_key=key)
 
-        models = ["gemini-1.5-flash", "gemini-2.0-flash-exp", "gemini-1.5-flash-8b"]
+        models = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-3.6-flash"]
         for m in models:
             try:
                 model = genai.GenerativeModel(
@@ -144,7 +144,7 @@ def call_gemini_text(prompt, system_instruction=""):
     # Fallback via REST API
     try:
         import requests
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}"
         full_text = (system_instruction + "\n\n" + prompt) if system_instruction else prompt
         payload = {"contents": [{"parts": [{"text": full_text}]}]}
         r = requests.post(url, json=payload, timeout=35)
@@ -175,7 +175,7 @@ def call_gemini_vision(prompt, image_input, mime_type="image/jpeg", json_mode=Fa
         if json_mode:
             generation_config["response_mime_type"] = "application/json"
 
-        models_to_try = ["gemini-1.5-flash", "gemini-2.0-flash-exp", "gemini-1.5-flash-8b"]
+        models_to_try = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-3.6-flash"]
 
         contents = [prompt]
         if isinstance(image_input, list):
