@@ -1234,7 +1234,7 @@ with main:
     
     @st.dialog("🩸 Guia Visual de Manchas de Sangue")
     def modal_guia_sangue():
-        st.markdown("Utilize as imagens de referência abaixo para guiar a identificação do tipo de mancha. Passe o mouse sobre a imagem e use o ícone ⛶ (tela cheia) ou selecione um padrão abaixo para ampliar em alta resolução:")
+        st.markdown("Utilize as imagens de referência abaixo para guiar a identificação do tipo de mancha. Passe o mouse sobre a imagem e use o ícone ⛶ (tela cheia) ou selecione um padrão abaixo para ampliar e baixar:")
         img_dir = os.path.join(os.path.dirname(__file__), "vestigio sangue")
         if os.path.exists(img_dir):
             files = sorted([os.path.join(img_dir, f) for f in os.listdir(img_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))])
@@ -1245,11 +1245,23 @@ with main:
                         st.image(img_p, use_container_width=True, caption=f"Padrão Referência #{idx+1}")
                 
                 st.markdown("<hr style='margin:16px 0; border-color:#e2e8f0;'>", unsafe_allow_html=True)
-                st.markdown("##### 🔍 Ampliar Padrão Específico")
+                st.markdown("##### 🔍 Ampliar e Baixar Padrão Específico")
                 opcoes_img = {f"Padrão Referência #{i+1}": img_p for i, img_p in enumerate(files)}
-                sel = st.selectbox("Escolha o padrão para ampliar em tela cheia:", list(opcoes_img.keys()), key="sel_zoom_sangue")
+                sel = st.selectbox("Escolha o padrão para ampliar:", list(opcoes_img.keys()), key="sel_zoom_sangue")
                 if sel:
                     st.image(opcoes_img[sel], use_container_width=True, caption=f"Visualização Detalhada Ampliada — {sel}")
+                    try:
+                        with open(opcoes_img[sel], "rb") as file_img:
+                            st.download_button(
+                                label=f"📥 Baixar Imagem do {sel}",
+                                data=file_img.read(),
+                                file_name=os.path.basename(opcoes_img[sel]),
+                                mime="image/jpeg",
+                                use_container_width=True,
+                                key=f"btn_dl_img_{sel}"
+                            )
+                    except Exception as e_dl:
+                        st.error(f"Erro ao disponibilizar download: {e_dl}")
         else:
             st.info("Pasta 'vestigio sangue' não localizada.")
 
