@@ -1294,8 +1294,8 @@ with main:
                     del st.session_state[k]
             st.rerun()
             
-        # 4. Sincronizar (Modal)
-        if btn4.button("☁️ Sincronizar App", use_container_width=True, key=f"btn_sync_{prefix}"):
+        # 4. Buscar Ocorrências (Modal)
+        if btn4.button("🔍 Buscar Ocorrências", use_container_width=True, key=f"btn_sync_{prefix}"):
             modal_ocorrencias()
 
         # 5. Auditoria de Inconsistências (Checkup do Laudo)
