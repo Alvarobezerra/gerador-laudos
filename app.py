@@ -2816,7 +2816,7 @@ with main:
             iso_text = iso_text.replace(
                 "{descrever_falha_isolamento}", st.session_state.get("iso_falha") or "________")
 
-            VARS["isolamento_detalhes"] = iso_text
+            VARS["isolamento_detalhes"] = st.session_state.get("iso_texto_personalizado") or iso_text
 
             # Map IML variables
             VARS["número_laudo_necropsia"] = st.session_state.get(
