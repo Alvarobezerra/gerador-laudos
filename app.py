@@ -48,45 +48,476 @@ def v(val): return str(val).strip() if str(val).strip() else "________"
 # ═══════════════════════════════════════════════════════════
 # MÓDULO DE INTEGRAÇÃO GOOGLE GEMINI AI
 # ═══════════════════════════════════════════════════════════
+# GEMINI VISION & IA HELPERS
+# ═══════════════════════════════════════════════════════════
 def get_gemini_api_key():
+    """Recupera a chave de API do Gemini de secrets, ambiente ou session_state."""
     try:
-        if "GEMINI_API_KEY" in st.secrets: return st.secrets["GEMINI_API_KEY"]
-    except: pass
-    if os.environ.get("GEMINI_API_KEY"): return os.environ.get("GEMINI_API_KEY")
-    return st.session_state.get("user_gemini_key", "")
+        if "GEMINI_API_KEY" in st.secrets and st.secrets["GEMINI_API_KEY"]:
+            return st.secrets["GEMINI_API_KEY"]
+    except Exception:
+        pass
+    env_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    if env_key:
+        return env_key
+    if st.session_state.get("user_gemini_key"):
+        return st.session_state.get("user_gemini_key")
+    if st.session_state.get("gemini_api_key_input"):
+        return st.session_state.get("gemini_api_key_input")
+    return ""
 
-def call_gemini_text(prompt):
+
+def convert_bytes_to_pil_images(file_bytes, file_name, file_type=""):
+    """
+    Converte bytes de arquivo (PDF ou Imagem) em lista de objetos PIL Image.
+    """
+    from io import BytesIO
+    from PIL import Image
+
+    file_name_lower = file_name.lower()
+    is_pdf = file_type == "application/pdf" or file_name_lower.endswith(".pdf")
+    images = []
+
+    if is_pdf:
+        # 1. PyMuPDF (fitz) - alta fidelidade e velocidade
+        try:
+            import fitz
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            for page in doc:
+                pix = page.get_pixmap(dpi=150)
+                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                images.append(img)
+        except Exception:
+            pass
+
+        # 2. Fallback pdfplumber
+        if not images:
+            try:
+                import pdfplumber
+                with pdfplumber.open(BytesIO(file_bytes)) as pdf:
+                    for page in pdf.pages:
+                        img = page.to_image(resolution=150).original
+                        images.append(img.convert("RGB"))
+            except Exception:
+                pass
+    else:
+        try:
+            img = Image.open(BytesIO(file_bytes))
+            images.append(img.convert("RGB"))
+        except Exception:
+            pass
+
+    return images
+
+
+def call_gemini_text(prompt, system_instruction=""):
     key = get_gemini_api_key()
-    if not key: return None, "Chave GEMINI_API_KEY não configurada."
+    if not key:
+        return None, "Chave GEMINI_API_KEY não configurada. Defina a chave na barra lateral ou em variáveis de ambiente."
+    last_err = None
     try:
         import google.generativeai as genai
         genai.configure(api_key=key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        resp = model.generate_content(prompt)
-        return resp.text, None
-    except Exception as e: return None, str(e)
 
-def call_gemini_vision(prompt, image_bytes, mime_type="image/jpeg"):
+        models = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
+        for m in models:
+            try:
+                model = genai.GenerativeModel(
+                    m,
+                    system_instruction=system_instruction if system_instruction else None
+                )
+                resp = model.generate_content(prompt)
+                if resp and resp.text:
+                    return resp.text, None
+            except Exception as e:
+                last_err = e
+                continue
+    except Exception as e:
+        last_err = e
+
+    # Fallback via REST API
+    try:
+        import requests
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={key}"
+        full_text = (system_instruction + "\n\n" + prompt) if system_instruction else prompt
+        payload = {"contents": [{"parts": [{"text": full_text}]}]}
+        r = requests.post(url, json=payload, timeout=35)
+        if r.status_code == 200:
+            res_j = r.json()
+            txt = res_j['candidates'][0]['content']['parts'][0]['text']
+            return txt, None
+        else:
+            return None, f"Erro na API do Gemini (HTTP {r.status_code}): {r.text}"
+    except Exception as e_rest:
+        return None, f"Erro ao conectar ao Gemini: {last_err or e_rest}"
+
+
+def call_gemini_vision(prompt, image_input, mime_type="image/jpeg", json_mode=False):
+    """
+    Executa chamada multimodal robusta ao Google Gemini API usando google.generativeai.
+    Suporta image_input como bytes, objeto PIL.Image, ou lista de PIL.Image.
+    """
     key = get_gemini_api_key()
-    if not key: return None, "Chave GEMINI_API_KEY não configurada."
+    if not key:
+        return None, "Chave GEMINI_API_KEY não configurada. Defina a chave na barra lateral ou variáveis de ambiente."
+
     try:
         import google.generativeai as genai
         genai.configure(api_key=key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        contents = [prompt, {"mime_type": mime_type, "data": image_bytes}]
-        resp = model.generate_content(contents)
-        return resp.text, None
-    except Exception as e: return None, str(e)
 
-@st.dialog("🔍 Auditoria de Inconsistências (IA Gemini)")
+        generation_config = {}
+        if json_mode:
+            generation_config["response_mime_type"] = "application/json"
+
+        models_to_try = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-pro-vision"]
+
+        contents = [prompt]
+        if isinstance(image_input, list):
+            contents.extend(image_input)
+        elif hasattr(image_input, "save") or str(type(image_input)).find("Image") != -1:
+            contents.append(image_input)
+        elif isinstance(image_input, bytes):
+            contents.append({"mime_type": mime_type, "data": image_input})
+        else:
+            contents.append(image_input)
+
+        last_err = None
+        for m_name in models_to_try:
+            try:
+                model = genai.GenerativeModel(m_name, generation_config=generation_config if json_mode else None)
+                resp = model.generate_content(contents)
+                if resp and resp.text:
+                    return resp.text, None
+            except Exception as e:
+                last_err = e
+                continue
+
+        return None, f"Erro ao executar Gemini Vision: {last_err}"
+    except Exception as err:
+        return None, str(err)
+
+
+def ler_requisicao_gemini_vision(file_bytes, file_name, file_type=""):
+    """
+    Lê uma Requisição Pericial (PDF ou Imagem) com Gemini Vision e retorna (extracted_text, dados_dict, error_msg).
+    Prompt estruturado para extrair JSON com Delegacia, Delegado, Ocorrência, Requisição e Quesitos.
+    """
+    images = convert_bytes_to_pil_images(file_bytes, file_name, file_type)
+    if not images:
+        return "", {}, "Não foi possível converter o documento em imagem para análise visual pelo Gemini Vision."
+
+    prompt = """
+Você é um perito criminalístico especialista em análise documental pericial brasileira.
+Examine a(s) imagem(ns) fornecida(s) da Requisição Pericial e extraia os seguintes dados no formato JSON estrito:
+
+{
+  "delegacia": "Nome da Delegacia de Polícia ou Órgão Solicitante",
+  "delegado": "Nome da Autoridade Solicitante / Delegado(a) de Polícia (incluindo cargo ou 'Dr.(a)' se houver)",
+  "ocorrencia": "Número do Boletim de Ocorrência / Ocorrência Policial",
+  "requisicao": "Número da Requisição Pericial",
+  "quesitos": "Texto integral de todos os quesitos / perguntas formuladas pela autoridade solicitante, numerados linha a linha"
+}
+
+Regras de extração:
+1. Transcreva com fidelidade absoluta os números de ocorrência, requisição e quesitos.
+2. Se algum campo não estiver visível na imagem, coloque string vazia "".
+3. Retorne APENAS o JSON válido.
+"""
+
+    resp_text, err = call_gemini_vision(prompt, images, json_mode=True)
+    if err or not resp_text:
+        return "", {}, err or "Sem resposta do Gemini"
+
+    import json
+    import re
+    cleaned = resp_text.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+
+    try:
+        dados = json.loads(cleaned)
+        dados["origem"] = "Gemini Vision IA"
+        return resp_text, dados, None
+    except Exception as e:
+        match = re.search(r"\{[\s\S]*\}", resp_text)
+        if match:
+            try:
+                dados = json.loads(match.group(0))
+                dados["origem"] = "Gemini Vision IA"
+                return resp_text, dados, None
+            except Exception:
+                pass
+        return resp_text, {}, f"Erro ao interpretar JSON do Gemini: {e}"
+
+
+def ler_necropsia_gemini_vision(file_bytes, file_name, file_type=""):
+    """
+    Lê um Laudo de Necropsia / Exame Cadavérico (PDF ou Imagem) usando Gemini Vision.
+    Extrai em JSON: causa_mortis, instrumento_lesivo, agente_instrumento, lesoes (lista), nome_vitima, documento_vitima, numero_laudo_iml.
+    """
+    images = convert_bytes_to_pil_images(file_bytes, file_name, file_type)
+    if not images:
+        return {}, "Não foi possível converter o arquivo em imagem para o Gemini Vision."
+
+    prompt = """
+Você é um médico legista e perito criminal especialista em tanatologia pericial e necropsia.
+Examine a(s) imagem(ns) do Laudo de Necropsia / Auto de Exame Cadavérico e extraia as informações em formato JSON estrito:
+
+{
+  "causa_mortis": "Descrição exata e detalhada da causa mortis (ex: Traumatismo cranioencefálico decorrente de PAF, Choque hipovolêmico por ferimento perfurocortante, etc.)",
+  "instrumento_lesivo": "Tipo de ação do instrumento lesivo (escolha preferencialmente uma das opções: Perfurocontundente, Cortante, Perfurante, Perfurocortante, Contundente, Cortocontundente, Ação Térmica)",
+  "agente_instrumento": "Agente/instrumento específico se mencionado (ex: projétil de arma de fogo, lâmina de faca, instrumento contundente maciço)",
+  "lesoes": [
+    "Descrição detalhada e técnica da lesão 1 (localização anatômica, tipo, formato, dimensões)",
+    "Descrição detalhada e técnica da lesão 2",
+    "..."
+  ],
+  "nome_vitima": "Nome da vítima / examinando se constar",
+  "documento_vitima": "RG/CPF ou número de identificação da vítima se constar",
+  "numero_laudo_iml": "Número do Laudo do IML / Necropsia"
+}
+
+Regras:
+1. Analise o exame necroscópico minuciosamente.
+2. Extraia cada lesão identificada como um item detalhado na lista "lesoes".
+3. Retorne apenas o JSON estrito.
+"""
+
+    resp_text, err = call_gemini_vision(prompt, images, json_mode=True)
+    if err or not resp_text:
+        return {}, err or "Sem resposta do Gemini"
+
+    import json
+    import re
+    cleaned = resp_text.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+
+    try:
+        dados = json.loads(cleaned)
+        return dados, None
+    except Exception as e:
+        match = re.search(r"\{[\s\S]*\}", resp_text)
+        if match:
+            try:
+                dados = json.loads(match.group(0))
+                return dados, None
+            except Exception:
+                pass
+        return {}, f"Erro ao decodificar JSON de Necropsia: {e}"
+
+
+def gerar_legenda_foto_gemini(b64_img, prompt_custom=None):
+    """
+    Gera legenda descritiva pericial técnica para uma fotografia de local/vestígio usando Gemini Vision.
+    """
+    import base64
+    from io import BytesIO
+    from PIL import Image
+
+    try:
+        img_bytes = base64.b64decode(b64_img)
+        pil_img = Image.open(BytesIO(img_bytes)).convert("RGB")
+    except Exception as e:
+        return None, f"Erro ao processar imagem: {e}"
+
+    prompt = prompt_custom or """
+Você é um perito criminal da Polícia Científica especialista em fotodescrição e exame de local de crime.
+Examine a fotografia fornecida e elabore uma legenda pericial formal, técnica, objetiva e sucinta para compor o Apêndice Fotográfico do laudo pericial.
+
+Exemplos de padrão pericial:
+- "Visão geral do local do crime, evidenciando o cadáver em decúbito dorsal sobre o solo."
+- "Detalhe aproximado da lesão perfurocontundente localizada na região parietal direita do crânio da vítima."
+- "Fotografia em plano aproximado do vestígio balístico (estojo de munição cal. 9mm) marcado na cena."
+- "Aspecto geral do instrumento lesivo (arma branca tipo faca) encontrado no local periciado."
+
+Regras:
+1. Forneça APENAS o texto da legenda pericial (1 a 2 frases).
+2. Não inclua aspas, prefixos como 'Legenda:' ou introduções.
+"""
+
+    resp_text, err = call_gemini_vision(prompt, pil_img)
+    if err or not resp_text:
+        return None, err or "Sem resposta da IA"
+
+    cleaned = resp_text.strip().strip('"').strip("'")
+    return cleaned, None
+
+
+@st.dialog("✨ Polir Redação com IA (Tom Formal-Jurídico)")
+def modal_polir_redacao(field_key, field_label):
+    st.markdown("### ✨ Polimento de Redação Forense com IA")
+    st.markdown(f"**Campo Selecionado:** `{field_label}`")
+
+    texto_atual = st.session_state.get(field_key, "")
+    if isinstance(texto_atual, list):
+        texto_atual = "\n".join([str(x) for x in texto_atual if str(x).strip()])
+
+    if not str(texto_atual).strip():
+        st.warning("⚠️ O campo selecionado está vazio. Digite um texto antes de solicitar o polimento.")
+        return
+
+    st.caption("Texto Original Atual:")
+    st.text_area("Texto Original", value=str(texto_atual), height=110, disabled=True, key=f"polir_orig_{field_key}")
+
+    key_temp = f"polished_temp_{field_key}"
+    if key_temp not in st.session_state:
+        st.session_state[key_temp] = ""
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("✨ Executar Polimento com IA", type="primary", use_container_width=True, key=f"btn_exec_polir_{field_key}"):
+            with st.spinner("Refinando redação e tom formal-jurídico com a IA Gemini..."):
+                sys_instruction = (
+                    "Você é um perito criminal especialista e revisor de laudos periciais oficiais da Polícia Civil. "
+                    "Reescreva o texto a seguir elevando o padrão para a norma culta formal-jurídica, "
+                    "utilizando terminologia pericial precisa, tom impessoal e clareza técnico-científica. "
+                    "NUNCA invente fatos, dados, objetos ou lesões adicionais. Mantenha 100% dos fatos originais."
+                )
+                prompt = f"Reescreva e polia o texto pericial abaixo mantendo integralmente todos os fatos e dados técnicos:\n\n{texto_atual}"
+                res, err = call_gemini_text(prompt, system_instruction=sys_instruction)
+                if err:
+                    st.error(f"Erro ao polir texto: {err}")
+                else:
+                    st.session_state[key_temp] = res
+                    st.success("✅ Texto polido gerado com sucesso!")
+
+    with col2:
+        if st.session_state.get(key_temp):
+            if st.button("✅ Aplicar Texto Polido no Laudo", type="secondary", use_container_width=True, key=f"btn_apply_polir_{field_key}"):
+                st.session_state[field_key] = st.session_state[key_temp]
+                st.session_state[key_temp] = ""
+                st.toast("✅ Texto polido aplicado ao laudo!")
+                st.rerun()
+
+    if st.session_state.get(key_temp):
+        st.markdown("**Resultado da Redação Polida (Sugestão IA):**")
+        st.text_area("Texto Polido", value=st.session_state[key_temp], height=150, key=f"polir_res_{field_key}")
+
+
+@st.dialog("🔍 Auditoria de Inconsistências (Checkup do Laudo)")
+def modal_auditoria_inconsistencias():
+    st.markdown("### 🛡️ Checkup de Qualidade e Coerência Forense")
+    st.markdown("O sistema executa verificações determinísticas de formulário e uma análise lógica profunda via Gemini IA:")
+
+    num_laudo = st.session_state.get("num_laudo", "")
+    ocorrencia = st.session_state.get("ocorrencia", "")
+    perito = st.session_state.get("perito", "")
+    autoridade = st.session_state.get("autoridade_sel", "")
+    requisicao = st.session_state.get("requisicao", "")
+    endereco = st.session_state.get("endereco", "")
+    delimitacoes = st.session_state.get("delimitacoes", "")
+    iso_estado = st.session_state.get("iso_estado", "")
+    inst_acao = st.session_state.get("inst_acao", "")
+    vitimas = st.session_state.get("vitimas", [])
+    vestigios = st.session_state.get("vestigios", [])
+    quesitos = st.session_state.get("quesitos_list", [])
+    dinamica = st.session_state.get("dinamica_fatos", "")
+
+    # Rule-based validation engine
+    erros = []
+    alertas = []
+    ok_items = []
+
+    # 1. Header & Essenciais
+    if not str(num_laudo).strip(): erros.append("Nº do Laudo não preenchido.")
+    else: ok_items.append("Nº do Laudo preenchido.")
+    if not str(ocorrencia).strip(): erros.append("Nº da Ocorrência não preenchido.")
+    else: ok_items.append("Nº da Ocorrência preenchido.")
+    if not str(perito).strip(): erros.append("Perito(a) Relator(a) não informado.")
+    else: ok_items.append("Perito Relator informado.")
+    if not str(autoridade).strip(): erros.append("Autoridade Solicitante não selecionada.")
+    else: ok_items.append("Autoridade Solicitante informada.")
+    if not str(requisicao).strip(): erros.append("Número da Requisição não preenchido.")
+    else: ok_items.append("Número de Requisição informado.")
+    if not str(endereco).strip(): erros.append("Endereço do local não informado.")
+    else: ok_items.append("Endereço informado.")
+
+    # 2. Vítimas & Lesões vs Instrumento
+    todas_lesoes = []
+    for idx_v, vt in enumerate(vitimas, 1):
+        if not vt.get("nome", "").strip():
+            alertas.append(f"Vítima #{idx_v} está sem nome/identificação definida.")
+        lesoes = [l.strip() for l in vt.get("lesoes", []) if l.strip()]
+        if not lesoes:
+            alertas.append(f"Vítima #{idx_v} ({vt.get('nome') or 'N/I'}) não possui lesões descritas.")
+        todas_lesoes.extend(lesoes)
+
+    lesoes_concat = " ".join(todas_lesoes).lower()
+    inst_str = str(inst_acao).lower()
+    if "perfurocontundente" in inst_str or inst_str.startswith("1"):
+        if "paf" not in lesoes_concat and "perfurocontundente" not in lesoes_concat and "projétil" not in lesoes_concat and "entrada" not in lesoes_concat and "disparo" not in lesoes_concat:
+            alertas.append("Instrumento selecionado é Perfurocontundente (PAF), mas a descrição de lesões da(s) vítima(s) não menciona PAF, disparos ou orifícios de entrada/saída.")
+    elif "cortante" in inst_str or inst_str.startswith("2"):
+        if "corte" not in lesoes_concat and "incisa" not in lesoes_concat and "gume" not in lesoes_concat and "faca" not in lesoes_concat:
+            alertas.append("Instrumento selecionado é Cortante, mas lesões não descrevem feridas incisas ou lâmina/gume.")
+
+    # 3. Vestígios
+    if not vestigios:
+        alertas.append("Nenhum vestígio registrado no laudo.")
+    else:
+        ok_items.append(f"{len(vestigios)} vestígio(s) registrado(s).")
+        for idx_vest, vest in enumerate(vestigios, 1):
+            if not vest.get("tipo"):
+                erros.append(f"Vestígio #{idx_vest} não possui Tipo selecionado.")
+            elif not vest.get("descricao") and not vest.get("localizacao") and not vest.get("subtipo"):
+                alertas.append(f"Vestígio #{idx_vest} ({vest.get('tipo')}) possui descrição/localização incompleta.")
+
+    # 4. Quesitos
+    quesitos_sem_resposta = [i+1 for i, q in enumerate(quesitos) if q.get("pergunta", "").strip() and not q.get("resposta", "").strip()]
+    if quesitos_sem_resposta:
+        alertas.append(f"Existem quesitos sem resposta formulada: Quesito(s) nº {quesitos_sem_resposta}.")
+
+    # Render Rule-Based Metrics
+    c_m1, c_m2, c_m3 = st.columns(3)
+    c_m1.metric("🔴 Erros/Incompletos", len(erros))
+    c_m2.metric("🟡 Alertas & Atenção", len(alertas))
+    c_m3.metric("🟢 Verificados OK", len(ok_items))
+
+    if erros:
+        st.error("**Inconsistências Críticas:**\n" + "\n".join([f"• {e}" for e in erros]))
+    if alertas:
+        st.warning("**Alertas e Recomendações:**\n" + "\n".join([f"• {a}" for a in alertas]))
+    if ok_items and not erros:
+        st.success("**Itens de Formulário Checados:**\n" + "\n".join([f"✓ {o}" for o in ok_items]))
+
+    st.divider()
+
+    st.markdown("### 🤖 Auditoria Lógica Profunda com Gemini IA")
+    if st.button("🚀 Executar Checkup Forense com IA", type="primary", use_container_width=True, key="btn_run_ai_audit"):
+        with st.spinner("Analisando dados com a IA Gemini em busca de incoerências e omissões..."):
+            dados_completos = {
+                "num_laudo": num_laudo, "ocorrencia": ocorrencia, "perito": perito, "autoridade": autoridade,
+                "requisicao": requisicao, "endereco": endereco, "delimitacoes": delimitacoes,
+                "isolamento": iso_estado, "instrumento": inst_acao, "vitimas": vitimas,
+                "vestigios": vestigios, "quesitos": quesitos, "dinamica_fatos": dinamica
+            }
+            prompt_audit = (
+                "Você é um perito auditor sênior em criminalística e medicina legal. Analise o conjunto de dados do laudo pericial a seguir "
+                "e verifique rigorosamente se existem:\n"
+                "1. Contradições lógicas entre a posição da vítima, lesões e vestígios encontrados;\n"
+                "2. Incompatibilidades entre a ação do instrumento e os exames perinicroscópicos;\n"
+                "3. Incoerências na preservação/isolamento e na cadeia de custódia;\n"
+                "4. Falhas ou omissões importantes que possam gerar nulidades no processo penal.\n\n"
+                f"DADOS DO LAUDO:\n{json.dumps(dados_completos, ensure_ascii=False, indent=2, default=str)}\n\n"
+                "Retorne o parecer técnico formatado com seções claras: 🚨 CONTRADIÇÕES LÓGICAS, ⚠️ RECOMENDAÇÕES DE AJUSTE, e 💡 SUGESTÕES COMPLEMENTARES."
+            )
+            sys_audit = "Você é um auditor pericial rigoroso. Seja imparcial, objetivo, técnico e ajude o perito a blindar o laudo contra erros ou contestação jurídica."
+            res, err = call_gemini_text(prompt_audit, system_instruction=sys_audit)
+            if err:
+                st.error(f"Erro na auditoria IA: {err}")
+            else:
+                st.session_state["resultado_auditoria_ia"] = res
+                st.success("✅ Auditoria IA concluída com sucesso!")
+
+    if st.session_state.get("resultado_auditoria_ia"):
+        st.markdown(st.session_state["resultado_auditoria_ia"])
+
+
 def modal_auditoria_ia():
-    st.markdown("Verificação inteligente de contradições e dados do laudo:")
-    dados_resumo = {k: v for k, v in st.session_state.items() if k not in ['autenticado', 'preview_open', 'user_gemini_key']}
-    prompt = f"Você é um perito criminal sênior. Analise o seguinte formulário de laudo pericial de local de morte violenta e identifique possíveis contradições, campos em branco críticos ou erros de coerência criminalística:\n{dados_resumo}\nForneça o resultado em tópicos claros e objetivos em português do Brasil."
-    with st.spinner("Analisando laudo com a IA Gemini..."):
-        res, err = call_gemini_text(prompt)
-        if err: st.error(f"Erro na auditoria: {err}")
-        else: st.markdown(res)
+    modal_auditoria_inconsistencias()
 
 
 def get_logo_base64():
@@ -100,12 +531,20 @@ def get_logo_base64():
             return ""
     return ""
 
+
 def ler_requisicao_pericial(file_bytes, file_name, file_type=""):
     """
     Extrai texto e campos (Delegacia, Delegado, Ocorrência, Requisição, Quesitos)
     de arquivos de Requisição Pericial em formato PDF ou Imagem.
-    Utiliza pdfplumber, pypdf, pytesseract (OCR) ou regex em texto bruto.
+    Prioriza o Gemini Vision IA quando a chave está configurada e faz fallback para OCR/Regex.
     """
+    # 1. Tenta extração via Gemini Vision IA se a API Key estiver configurada
+    if get_gemini_api_key():
+        resp_text, dados_g, err_g = ler_requisicao_gemini_vision(file_bytes, file_name, file_type)
+        if dados_g and any(dados_g.values()):
+            return resp_text, dados_g
+
+    # 2. Fallback para métodos locais (pdfplumber, pypdf, pytesseract OCR + Regex)
     from io import BytesIO
     import re
 
@@ -115,7 +554,6 @@ def ler_requisicao_pericial(file_bytes, file_name, file_type=""):
     is_img = file_type.startswith("image/") or file_name_lower.endswith((".png", ".jpg", ".jpeg", ".bmp", ".tiff"))
 
     if is_pdf:
-        # 1. Tenta pdfplumber
         try:
             import pdfplumber
             with pdfplumber.open(BytesIO(file_bytes)) as pdf:
@@ -126,7 +564,6 @@ def ler_requisicao_pericial(file_bytes, file_name, file_type=""):
         except Exception:
             pass
 
-        # 2. Fallback para pypdf
         if not extracted_text.strip():
             try:
                 import pypdf
@@ -138,7 +575,6 @@ def ler_requisicao_pericial(file_bytes, file_name, file_type=""):
             except Exception:
                 pass
 
-        # 3. Fallback para OCR caso o PDF seja baseado em imagem digitalizada
         if not extracted_text.strip():
             try:
                 import pdfplumber
@@ -167,10 +603,8 @@ def ler_requisicao_pericial(file_bytes, file_name, file_type=""):
         except Exception:
             pass
 
-    # Extração de campos via Regex no texto obtido
     dados = {}
     if extracted_text.strip():
-        # Extrai Delegacia / Destino
         m_del = re.search(r'(?:DELEGACIA(?: DE POLÍCIA)?|UNIDADE SOLICITANTE|ÓRGÃO SOLICITANTE|ORIGEM|DESTINO)[\s:]+([^\n\r]+)', extracted_text, re.IGNORECASE)
         if not m_del:
             m_del = re.search(r'(DELEGACIA DE POLÍCIA [^\n\r]+)', extracted_text, re.IGNORECASE)
@@ -811,10 +1245,10 @@ with main:
 
     def render_action_buttons(prefix):
         st.markdown('<br>', unsafe_allow_html=True)
-        btn1, btn2, btn3, btn4 = st.columns([1, 1.2, 1, 1.3])
+        btn1, btn2, btn3, btn4, btn5 = st.columns([1, 1.2, 0.9, 1.2, 1.6])
         
         # 1. Salvar no Sistema
-        if btn1.button("💾 Salvar no Sistema", use_container_width=True, key=f"btn_salvar_{prefix}"):
+        if btn1.button("💾 Salvar", use_container_width=True, key=f"btn_salvar_{prefix}"):
             import sqlite3, json, os, datetime
             DB_PATH = os.path.join(os.path.dirname(__file__), "banco_laudos.sqlite")
             dados = {}
@@ -857,17 +1291,35 @@ with main:
         # 4. Sincronizar (Modal)
         if btn4.button("☁️ Sincronizar App", use_container_width=True, key=f"btn_sync_{prefix}"):
             modal_ocorrencias()
-        if prefix == "top" and st.button("🔍 Auditoria IA", key="btn_audit_top"):
-            modal_auditoria_ia()
+
+        # 5. Auditoria de Inconsistências (Checkup do Laudo)
+        if btn5.button("🔍 Auditoria de Inconsistências (Checkup)", use_container_width=True, key=f"btn_audit_{prefix}"):
+            modal_auditoria_inconsistencias()
             
         return gerar_clicked
 
 
     
+    with st.sidebar:
+        st.markdown("### 🤖 Google Gemini Vision IA")
+        if get_gemini_api_key():
+            st.success("✅ Gemini API Conectado")
+        else:
+            st.warning("⚠️ Chave Gemini API Ausente")
+
+        st.text_input(
+            "Chave GEMINI_API_KEY",
+            type="password",
+            key="user_gemini_key",
+            help="Cole sua chave da Google Gemini API para habilitar a extração inteligente de documentos e geração de legendas periciais."
+        )
+        st.markdown("---")
+        st.caption("Suporta Gemini Vision (gemini-1.5-flash, gemini-2.0-flash) para PDF e Imagens.")
+
     with st.expander("⚙️ Configurações da IA Gemini (Opcional)", expanded=False):
-        st.text_input("Chave API do Gemini (AI Studio)", type="password", key="user_gemini_key", help="Caso não configurada nos segredos do servidor, insira sua chave da API Gemini aqui.")
+        st.text_input("Chave API do Gemini (AI Studio)", type="password", key="gemini_api_key_input", help="Caso não configurada nos segredos do servidor, insira sua chave da API Gemini aqui.")
         if get_gemini_api_key(): st.success("✅ Chave Gemini ativa!")
-        else: st.info("ℹ️ Cole sua chave API gratuita do Google AI Studio para ativar legendas e redação automática.")
+        else: st.info("ℹ️ Cole sua chave API gratuita do Google AI Studio para ativar leitores inteligentes Vision e redação automática.")
 
     gerar_top = render_action_buttons("top")
     st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
@@ -878,6 +1330,11 @@ with main:
             '<div class="section-title">📋 &nbsp; Da Ocorrência</div>', unsafe_allow_html=True)
         with st.container():
             with st.expander("📄 Leitor Automático de Requisição Pericial (PDF / Imagem)", expanded=False):
+                if get_gemini_api_key():
+                    st.info("✨ Leitor Gemini Vision Ativo: Extração multimodal inteligente de Delegacia, Delegado, Ocorrência, Requisição e Quesitos.")
+                else:
+                    st.caption("💡 Para extração com inteligência artificial multimodal Gemini Vision, adicione sua chave GEMINI_API_KEY na barra lateral.")
+                
                 req_file = st.file_uploader("Carregar Requisição Pericial (PDF ou Imagem)", type=["pdf", "png", "jpg", "jpeg", "bmp", "tiff"], key="req_file_input")
                 if req_file is not None:
                     file_bytes = req_file.read()
@@ -900,7 +1357,8 @@ with main:
                             if raw_lines:
                                 st.session_state["quesitos_list"] = [{"pergunta": q_line, "resposta": ""} for q_line in raw_lines]
 
-                        st.success("✅ Requisição pericial lida com sucesso! Campos preenchidos automaticamente:")
+                        orig = dados.get("origem", "Automático")
+                        st.success(f"✅ Requisição pericial lida com sucesso! ({orig}) Campos preenchidos automaticamente:")
                         st.json(dados)
                     elif extracted_text:
                         st.warning("⚠️ Texto extraído da requisição, mas nenhum campo de formulário reconhecido automaticamente por regex.")
@@ -1040,6 +1498,57 @@ with main:
         with st.container(border=True):
             st.markdown('<span class="custom-border-marker"></span>',
                         unsafe_allow_html=True)
+
+            with st.expander("📄 Leitor Gemini Vision - Laudo de Necropsia / Exame Cadavérico (PDF / Imagem)", expanded=False):
+                st.markdown("<p style='font-size:13px; color:#475569;'>Faça o upload do Laudo de Necropsia ou Auto de Exame Cadavérico (IML) em PDF ou imagem para extração automática da Causa Mortis, Instrumento Lesivo e Lesões Detalhadas com Gemini Vision IA.</p>", unsafe_allow_html=True)
+                nec_file = st.file_uploader("Carregar Laudo de Necropsia / Exame Cadavérico", type=["pdf", "png", "jpg", "jpeg", "bmp", "tiff"], key="necropsia_file_input")
+                if nec_file is not None:
+                    if st.button("✨ Processar Necropsia com Gemini Vision", type="primary", key="btn_process_necropsia", use_container_width=True):
+                        if not get_gemini_api_key():
+                            st.error("⚠️ Chave GEMINI_API_KEY não configurada. Defina sua chave na barra lateral ou nas configurações.")
+                        else:
+                            with st.spinner("Analisando Laudo de Necropsia com Gemini Vision..."):
+                                nec_bytes = nec_file.read()
+                                dados_nec, err_nec = ler_necropsia_gemini_vision(nec_bytes, nec_file.name, nec_file.type)
+                                if err_nec:
+                                    st.error(f"❌ Erro ao analisar laudo de necropsia: {err_nec}")
+                                elif dados_nec:
+                                    if dados_nec.get("causa_mortis"):
+                                        st.session_state["resultado_laudo_IML"] = dados_nec["causa_mortis"]
+                                    if dados_nec.get("numero_laudo_iml"):
+                                        st.session_state["numero_laudo_necropsia"] = dados_nec["numero_laudo_iml"]
+
+                                    inst_extraido = dados_nec.get("instrumento_lesivo", "")
+                                    if inst_extraido:
+                                        map_inst = {
+                                            "perfurocontundente": "1. Perfurocontundente (Arma de Fogo)",
+                                            "cortante": "2. Cortante (Feridas Incisas - Faca, Navalha, Estilete, Vidro)",
+                                            "perfurante": "3. Perfurante (Feridas Punctórias - Espeto, Estilete, Chave de Fenda)",
+                                            "perfurocortante": "4. Perfurocortante (Feridas Perfuroincisas - Faca, Punhal, Canivete)",
+                                            "contundente": "5. Contundente (Feridas Contusas/Fraturas - Madeira, Pedra, Veículo, Piso)",
+                                            "cortocontundente": "6. Cortocontundente (Feridas Contuso-Incisas - Machado, Facão, Foice)",
+                                            "térmica": "7. Ação Térmica (Queimaduras - Chama Direta, Líquido Fervente, Superfície Aquecida)",
+                                            "termica": "7. Ação Térmica (Queimaduras - Chama Direta, Líquido Fervente, Superfície Aquecida)"
+                                        }
+                                        for k_m, v_m in map_inst.items():
+                                            if k_m in inst_extraido.lower():
+                                                st.session_state["inst_acao"] = v_m
+                                                break
+                                    if dados_nec.get("agente_instrumento"):
+                                        st.session_state["inst_agente"] = dados_nec["agente_instrumento"]
+
+                                    if "vitimas" in st.session_state and st.session_state["vitimas"]:
+                                        vit0 = st.session_state["vitimas"][0]
+                                        if dados_nec.get("nome_vitima") and not vit0.get("nome"):
+                                            vit0["nome"] = dados_nec["nome_vitima"]
+                                        if dados_nec.get("documento_vitima") and not vit0.get("documento"):
+                                            vit0["documento"] = dados_nec["documento_vitima"]
+                                        if dados_nec.get("lesoes") and isinstance(dados_nec["lesoes"], list) and len(dados_nec["lesoes"]) > 0:
+                                            vit0["lesoes"] = [str(l).strip() for l in dados_nec["lesoes"] if str(l).strip()]
+
+                                    st.success("✅ Laudo de Necropsia analisado com sucesso pelo Gemini Vision! Dados preenchidos no formulário:")
+                                    st.json(dados_nec)
+                                    st.rerun()
 
             vitimas_list = st.session_state.get("vitimas", [{"nome": "", "cad": "", "documento": "", "sexo": "", "data_nascimento": None, "filicao": "",
                                                 "naturalidade": "", "vestes": "", "pertences": "", "localizacao": "", "posicao": "", "cabeca": "", "membros": "", "fenomenos": "", "lesoes": [""]}])
@@ -1427,6 +1936,57 @@ with main:
             if st.button("➕ Adicionar Quesito", key="btn_add_quesito"):
                 st.session_state.quesitos_list.append({"pergunta": "", "resposta": ""})
                 st.rerun()
+
+            st.divider()
+            st.subheader("f) Dinâmica dos Fatos / Conclusão Pericial")
+            st.markdown("<p style='font-size:13px; color:#475569; margin-bottom:12px;'>Elabore a narrativa técnico-científica dos acontecimentos ou solicite à IA Gemini uma sugestão automatizada baseada nos dados do laudo.</p>", unsafe_allow_html=True)
+
+            col_d1, col_d2 = st.columns([2.2, 1])
+            with col_d1:
+                if st.button("🤖 Gerar Sugestão de Dinâmica dos Fatos com IA", type="primary", use_container_width=True, key="btn_gerar_dinamica_ia"):
+                    with st.spinner("Sintetizando vestígios, lesões e local para sugerir a Dinâmica dos Fatos..."):
+                        dados_dinamica = {
+                            "ocorrencia": st.session_state.get("ocorrencia"),
+                            "endereco": st.session_state.get("endereco"),
+                            "delimitacoes": st.session_state.get("delimitacoes"),
+                            "isolamento": st.session_state.get("iso_estado"),
+                            "instrumento": st.session_state.get("inst_acao"),
+                            "agente_compativel": st.session_state.get("inst_agente"),
+                            "achados_extras": st.session_state.get("inst_extra"),
+                            "vitimas": st.session_state.get("vitimas"),
+                            "vestigios": st.session_state.get("vestigios"),
+                            "quesitos": st.session_state.get("quesitos_list")
+                        }
+                        prompt_dinamica = (
+                            "Com base exclusivamente nos dados técnicos do laudo pericial fornecidos abaixo, elabore o texto formal "
+                            "da 'Dinâmica dos Fatos / Conclusão Pericial'. A narrativa deve correlacionar a posição e lesões da(s) vítima(s), "
+                            "os vestígios materiais coletados, o instrumento utilizado e o cenário do local, apresentando em sequência cronológica e lógica "
+                            "provável como os fatos ocorreram, mantendo tom imparcial, técnico-científico e jurídico de laudo oficial da Polícia Civil.\n\n"
+                            f"DADOS DO LAUDO:\n{json.dumps(dados_dinamica, ensure_ascii=False, indent=2, default=str)}"
+                        )
+                        sys_dinamica = (
+                            "Você é um perito criminal relator especialista em homicídios e locais de morte violenta. "
+                            "Redija uma Dinâmica dos Fatos formal, coesa e com vocabulário técnico rigoroso para constar no laudo oficial."
+                        )
+                        res, err = call_gemini_text(prompt_dinamica, system_instruction=sys_dinamica)
+                        if err:
+                            st.error(f"Erro ao gerar dinâmica com IA: {err}")
+                        else:
+                            st.session_state["dinamica_fatos"] = res
+                            st.success("✅ Sugestão de Dinâmica dos Fatos gerada com sucesso!")
+
+            with col_d2:
+                if st.button("✨ Polir Redação da Dinâmica", use_container_width=True, key="btn_polir_dinamica"):
+                    modal_polir_redacao("dinamica_fatos", "Dinâmica dos Fatos")
+
+            dinamica_text = st.text_area(
+                "Descrição da Dinâmica dos Fatos",
+                value=st.session_state.get("dinamica_fatos", ""),
+                height=180,
+                key="dinamica_fatos_ui",
+                placeholder="Clique no botão acima para gerar a narrativa por IA ou digite a síntese da dinâmica..."
+            )
+            st.session_state["dinamica_fatos"] = dinamica_text
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
     with st.container():
@@ -1469,7 +2029,27 @@ with main:
 
             if st.session_state["fotos"]:
                 st.markdown("<hr style='margin:16px 0; border-color:#e2e8f0;'>", unsafe_allow_html=True)
-                st.markdown(f"##### 🖼️ Galeria de Fotografias ({len(st.session_state['fotos'])} item(ns))")
+                
+                c_gal_hdr, c_gal_btn = st.columns([2, 1])
+                with c_gal_hdr:
+                    st.markdown(f"##### 🖼️ Galeria de Fotografias ({len(st.session_state['fotos'])} item(ns))")
+                with c_gal_btn:
+                    if st.button("✨ Gerar Legendas com IA Gemini", type="primary", key="btn_gemini_legendas_todas", use_container_width=True):
+                        if not get_gemini_api_key():
+                            st.error("⚠️ Chave GEMINI_API_KEY não configurada. Defina sua chave na barra lateral.")
+                        else:
+                            with st.spinner("✨ Analisando fotografias e gerando legendas periciais formais com Gemini Vision..."):
+                                count_sucesso = 0
+                                for idx_f, foto in enumerate(st.session_state["fotos"]):
+                                    legenda, err_g = gerar_legenda_foto_gemini(foto["b64"])
+                                    if legenda:
+                                        foto["descricao"] = legenda
+                                        count_sucesso += 1
+                                if count_sucesso > 0:
+                                    st.toast(f"✨ Legendas geradas com sucesso para {count_sucesso} foto(s)!")
+                                    st.rerun()
+                                else:
+                                    st.error("Não foi possível gerar legendas para as fotos.")
 
                 indices_para_remover = []
                 for idx_f, foto in enumerate(st.session_state["fotos"]):
@@ -1486,11 +2066,29 @@ with main:
                             value=foto.get("incluir", True),
                             key=f"foto_inc_{idx_f}"
                         )
+                        c_lbl, c_btn_sing = st.columns([2, 1])
+                        with c_lbl:
+                            st.markdown("<label style='font-size:13px; font-weight:600; color:#334155;'>Legenda / Descrição da Fotografia</label>", unsafe_allow_html=True)
+                        with c_btn_sing:
+                            if st.button("✨ Legenda IA", key=f"btn_single_gemini_{idx_f}", use_container_width=True, help="Gerar legenda pericial automática com Gemini Vision"):
+                                if not get_gemini_api_key():
+                                    st.error("⚠️ Chave Gemini API não configurada.")
+                                else:
+                                    with st.spinner("Gerando legenda..."):
+                                        leg_s, err_s = gerar_legenda_foto_gemini(foto["b64"])
+                                        if leg_s:
+                                            foto["descricao"] = leg_s
+                                            st.toast(f"✨ Legenda gerada para Foto #{idx_f+1}!")
+                                            st.rerun()
+                                        else:
+                                            st.error(f"Erro: {err_s}")
+
                         foto["descricao"] = st.text_area(
                             "Legenda / Descrição da Fotografia",
                             value=foto.get("descricao", ""),
                             key=f"foto_desc_{idx_f}",
                             height=80,
+                            label_visibility="collapsed",
                             placeholder="Descreva o elemento ou visão registrada nesta foto..."
                         )
                         if st.button(f"🗑️ Remover Foto #{idx_f+1}", key=f"btn_del_foto_{idx_f}", type="secondary"):
