@@ -116,6 +116,167 @@ def convert_bytes_to_pil_images(file_bytes, file_name, file_type=""):
     return images
 
 
+
+def render_action_buttons(prefix):
+        st.markdown('<br>', unsafe_allow_html=True)
+        btn1, btn2, btn3, btn4, btn5, btn6 = st.columns([1, 1.2, 0.9, 1.1, 1.1, 1.2])
+
+        # 1. Salvar no Sistema
+        if btn1.button("💾 Salvar", use_container_width=True, key=f"btn_salvar_{prefix}"):
+            import sqlite3, json, os, datetime
+            DB_PATH = os.path.join(os.path.dirname(__file__), "banco_laudos.sqlite")
+            dados = {}
+            for k, v in st.session_state.items():
+                if k not in ['autenticado', 'preview_open']:
+                    try:
+                        if isinstance(v, (datetime.date, datetime.time)):
+                            dados[k] = v.isoformat()
+                        else:
+                            dados[k] = v
+                    except: pass
+            if 'vitimas' in st.session_state: dados['vitimas'] = st.session_state['vitimas']
+            if 'vestigios' in st.session_state: dados['vestigios'] = st.session_state['vestigios']
+            if 'fotos' in st.session_state: dados['fotos'] = st.session_state['fotos']
+            if 'quesitos_list' in st.session_state: dados['quesitos_list'] = st.session_state['quesitos_list']
+
+            try:
+                conn = sqlite3.connect(DB_PATH)
+                c = conn.cursor()
+                mob_id = dados.get('ocorrencia', f"laudo_{len(dados)}")
+                now_str = datetime.datetime.now().isoformat()
+                c.execute('INSERT OR REPLACE INTO laudos (mobile_id, data_sincronizacao, dados_json) VALUES (?, ?, ?)',
+                          (mob_id, now_str, json.dumps(dados)))
+                conn.commit()
+                conn.close()
+                st.success("✅ Dados salvos com sucesso no sistema!")
+            except Exception as e:
+                st.error(f"Erro ao salvar: {e}")
+
+        # 2. Gerar Laudo
+        gerar_clicked = btn2.button("🚀 Gerar Laudo (.docx)", type="primary", use_container_width=True, key=f"btn_gerar_{prefix}")
+
+        # 3. Limpar Formulário
+        if btn3.button("🗑️ Limpar", use_container_width=True, key=f"btn_limpar_{prefix}"):
+            for k in list(st.session_state.keys()):
+                if k not in ['autenticado']:
+                    del st.session_state[k]
+            st.rerun()
+
+        # 4. Buscar Ocorrências (Modal)
+        if btn4.button("🔍 Buscar", use_container_width=True, key=f"btn_sync_{prefix}"):
+            modal_ocorrencias()
+
+        # 5. Auditoria de Inconsistências (Checkup do Laudo)
+        if btn5.button("🔍 Auditoria", use_container_width=True, key=f"btn_audit_{prefix}"):
+            modal_auditoria_inconsistencias()
+
+        # 6. Sugestões & Melhorias
+        if btn6.button("💡 Sugestões", use_container_width=True, key=f"btn_sugestoes_{prefix}"):
+            modal_sugestoes()
+
+        return gerar_clicked
+
+
+SUGESTOES_FILE = os.path.join(os.path.dirname(__file__), "sugestoes.json")
+
+def carregar_sugestoes():
+    if os.path.exists(SUGESTOES_FILE):
+        try:
+            with open(SUGESTOES_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+def salvar_sugestoes(lista):
+    try:
+        with open(SUGESTOES_FILE, "w", encoding="utf-8") as f:
+            json.dump(lista, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        st.error(f"Erro ao salvar sugestões: {e}")
+        return False
+
+@st.dialog("💬 Central de Sugestões, Erros e Melhorias")
+def modal_sugestoes():
+    sugestoes = carregar_sugestoes()
+    tab1, tab2 = st.tabs(["➕ Cadastrar Sugestão / Erro", f"📋 Acompanhar Sugestões ({len(sugestoes)})"])
+
+    with tab1:
+        st.markdown("Use este formulário para reportar bugs, divergências ou sugerir novas melhorias para o sistema:")
+        tipo = st.selectbox("Tipo de Comunicação", ["💡 Sugestão de Melhoria", "🐛 Reportar Erro / Problema", "✨ Nova Funcionalidade", "Outro"], key="sug_tipo")
+        titulo = st.text_input("Título / Resumo", placeholder="Ex: Ajustar layout dos cartões de vestígios", key="sug_titulo")
+        autor = st.text_input("Seu Nome / Perito", value=st.session_state.get("perito", ""), placeholder="Ex: Dr. Carlos", key="sug_autor")
+        descricao = st.text_area("Descrição detalhada", placeholder="Descreva com detalhes a sua sugestão ou o erro observado...", height=100, key="sug_desc")
+        uploaded_imgs = st.file_uploader("📸 Anexar Imagens / Prints (Opcional)", type=["png", "jpg", "jpeg", "webp"], accept_multiple_files=True, key="sug_imgs_input")
+
+        if st.button("🚀 Cadastrar Sugestão", type="primary", use_container_width=True, key="btn_cadastrar_sugestao"):
+            if not titulo.strip() or not descricao.strip():
+                st.warning("⚠️ Por favor, preencha o título e a descrição da sugestão.")
+            else:
+                import datetime, base64
+                imgs_b64 = []
+                if uploaded_imgs:
+                    for f_img in uploaded_imgs:
+                        try:
+                            imgs_b64.append(base64.b64encode(f_img.read()).decode("utf-8"))
+                        except Exception: pass
+
+                novo_item = {
+                    "id": datetime.datetime.now().strftime("%Y%m%d%H%M%S"),
+                    "data": datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
+                    "tipo": tipo,
+                    "titulo": titulo.strip(),
+                    "autor": autor.strip() if autor.strip() else "Perito Anônimo",
+                    "descricao": descricao.strip(),
+                    "imagens": imgs_b64,
+                    "status": "🟡 Pendente"
+                }
+                sugestoes.insert(0, novo_item)
+                salvar_sugestoes(sugestoes)
+                st.success("✅ Sua sugestão foi cadastrada com sucesso! Você pode acompanhar o status na aba 'Acompanhar Sugestões'.")
+                st.rerun()
+
+    with tab2:
+        if not sugestoes:
+            st.info("Nenhuma sugestão cadastrada até o momento.")
+        else:
+            st.markdown("##### 📋 Sugestões Cadastradas e Acompanhamento de Status")
+            opcoes_status = ["🟡 Pendente", "🔵 Em Análise", "🟠 Em Desenvolvimento", "🟢 Concluído / Executado", "🔴 Não Aplicável"]
+
+            for idx, item in enumerate(sugestoes):
+                with st.expander(f"{item.get('status', '🟡 Pendente')} | {item.get('titulo')} ({item.get('data')})"):
+                    st.markdown(f"**Tipo:** {item.get('tipo')}")
+                    st.markdown(f"**Autor:** {item.get('autor')}")
+                    st.markdown(f"**Descrição:**\n{item.get('descricao')}")
+
+                    if item.get("imagens"):
+                        st.markdown("**📸 Imagens / Prints Anexados:**")
+                        import base64
+                        cols_img = st.columns(min(len(item["imagens"]), 3))
+                        for i_idx, b64_str in enumerate(item["imagens"]):
+                            with cols_img[i_idx % 3]:
+                                try:
+                                    img_data = base64.b64decode(b64_str)
+                                    st.image(img_data, use_container_width=True, caption=f"Print #{i_idx+1}")
+                                except Exception: pass
+
+                    st.markdown("---")
+                    st.markdown("**⚙️ Alterar Status (Administrador):**")
+                    col_st1, col_st2 = st.columns([3, 1])
+                    with col_st1:
+                        curr_st = item.get("status", "🟡 Pendente")
+                        curr_idx = opcoes_status.index(curr_st) if curr_st in opcoes_status else 0
+                        novo_st = st.selectbox("Status", opcoes_status, index=curr_idx, key=f"sel_st_{item['id']}_{idx}")
+                    with col_st2:
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        if st.button("Salvar", key=f"btn_save_st_{item['id']}_{idx}", use_container_width=True):
+                            sugestoes[idx]["status"] = novo_st
+                            salvar_sugestoes(sugestoes)
+                            st.success("Status atualizado!")
+                            st.rerun()
+
+
 def call_gemini_text(prompt, system_instruction=""):
     key = get_gemini_api_key()
     if not key:
@@ -1178,7 +1339,7 @@ with main:
 
     sanitize_datetime_state()
 
-    
+
     logo_b64 = get_logo_base64()
     logo_html = f'<img src="data:image/png;base64,{logo_b64}" style="height:65px; width:auto; object-fit:contain;" />' if logo_b64 else ''
 
@@ -1293,10 +1454,10 @@ with main:
         else:
             st.info("Nenhuma ocorrência encontrada no banco.")
 
-    
 
-    
-    
+
+
+
     @st.dialog("🩸 Guia Visual de Manchas de Sangue")
     def modal_guia_sangue():
         st.markdown("Utilize as imagens de referência abaixo para guiar a identificação do tipo de mancha. Passe o mouse sobre a imagem e use o ícone ⛶ (tela cheia) ou selecione um padrão abaixo para ampliar e baixar:")
@@ -1308,7 +1469,7 @@ with main:
                 for idx, img_p in enumerate(files):
                     with cols[idx % 2]:
                         st.image(img_p, use_container_width=True, caption=f"Padrão Referência #{idx+1}")
-                
+
                 st.markdown("<hr style='margin:16px 0; border-color:#e2e8f0;'>", unsafe_allow_html=True)
                 st.markdown("##### 🔍 Ampliar e Baixar Padrão Específico")
                 opcoes_img = {f"Padrão Referência #{i+1}": img_p for i, img_p in enumerate(files)}
@@ -1330,169 +1491,7 @@ with main:
         else:
             st.info("Pasta 'vestigio sangue' não localizada.")
 
-    
-SUGESTOES_FILE = os.path.join(os.path.dirname(__file__), "sugestoes.json")
 
-def carregar_sugestoes():
-    if os.path.exists(SUGESTOES_FILE):
-        try:
-            with open(SUGESTOES_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return []
-    return []
-
-def salvar_sugestoes(lista):
-    try:
-        with open(SUGESTOES_FILE, "w", encoding="utf-8") as f:
-            json.dump(lista, f, ensure_ascii=False, indent=2)
-        return True
-    except Exception as e:
-        st.error(f"Erro ao salvar sugestões: {e}")
-        return False
-
-@st.dialog("💬 Central de Sugestões, Erros e Melhorias")
-def modal_sugestoes():
-    sugestoes = carregar_sugestoes()
-    tab1, tab2 = st.tabs(["➕ Cadastrar Sugestão / Erro", f"📋 Acompanhar Sugestões ({len(sugestoes)})"])
-    
-    with tab1:
-        st.markdown("Use este formulário para reportar bugs, divergências ou sugerir novas melhorias para o sistema:")
-        tipo = st.selectbox("Tipo de Comunicação", ["💡 Sugestão de Melhoria", "🐛 Reportar Erro / Problema", "✨ Nova Funcionalidade", "Outro"], key="sug_tipo")
-        titulo = st.text_input("Título / Resumo", placeholder="Ex: Ajustar layout dos cartões de vestígios", key="sug_titulo")
-        autor = st.text_input("Seu Nome / Perito", value=st.session_state.get("perito", ""), placeholder="Ex: Dr. Carlos", key="sug_autor")
-        descricao = st.text_area("Descrição detalhada", placeholder="Descreva com detalhes a sua sugestão ou o erro observado...", height=100, key="sug_desc")
-        uploaded_imgs = st.file_uploader("📸 Anexar Imagens / Prints (Opcional)", type=["png", "jpg", "jpeg", "webp"], accept_multiple_files=True, key="sug_imgs_input")
-
-        if st.button("🚀 Cadastrar Sugestão", type="primary", use_container_width=True, key="btn_cadastrar_sugestao"):
-            if not titulo.strip() or not descricao.strip():
-                st.warning("⚠️ Por favor, preencha o título e a descrição da sugestão.")
-            else:
-                import datetime, base64
-                imgs_b64 = []
-                if uploaded_imgs:
-                    for f_img in uploaded_imgs:
-                        try:
-                            imgs_b64.append(base64.b64encode(f_img.read()).decode("utf-8"))
-                        except Exception: pass
-
-                novo_item = {
-                    "id": datetime.datetime.now().strftime("%Y%m%d%H%M%S"),
-                    "data": datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
-                    "tipo": tipo,
-                    "titulo": titulo.strip(),
-                    "autor": autor.strip() if autor.strip() else "Perito Anônimo",
-                    "descricao": descricao.strip(),
-                    "imagens": imgs_b64,
-                    "status": "🟡 Pendente"
-                }
-                sugestoes.insert(0, novo_item)
-                salvar_sugestoes(sugestoes)
-                st.success("✅ Sua sugestão foi cadastrada com sucesso! Você pode acompanhar o status na aba 'Acompanhar Sugestões'.")
-                st.rerun()
-                
-    with tab2:
-        if not sugestoes:
-            st.info("Nenhuma sugestão cadastrada até o momento.")
-        else:
-            st.markdown("##### 📋 Sugestões Cadastradas e Acompanhamento de Status")
-            opcoes_status = ["🟡 Pendente", "🔵 Em Análise", "🟠 Em Desenvolvimento", "🟢 Concluído / Executado", "🔴 Não Aplicável"]
-            
-            for idx, item in enumerate(sugestoes):
-                with st.expander(f"{item.get('status', '🟡 Pendente')} | {item.get('titulo')} ({item.get('data')})"):
-                    st.markdown(f"**Tipo:** {item.get('tipo')}")
-                    st.markdown(f"**Autor:** {item.get('autor')}")
-                    st.markdown(f"**Descrição:**\n{item.get('descricao')}")
-                    
-                    if item.get("imagens"):
-                        st.markdown("**📸 Imagens / Prints Anexados:**")
-                        import base64
-                        cols_img = st.columns(min(len(item["imagens"]), 3))
-                        for i_idx, b64_str in enumerate(item["imagens"]):
-                            with cols_img[i_idx % 3]:
-                                try:
-                                    img_data = base64.b64decode(b64_str)
-                                    st.image(img_data, use_container_width=True, caption=f"Print #{i_idx+1}")
-                                except Exception: pass
-
-                    st.markdown("---")
-                    st.markdown("**⚙️ Alterar Status (Administrador):**")
-                    col_st1, col_st2 = st.columns([3, 1])
-                    with col_st1:
-                        curr_st = item.get("status", "🟡 Pendente")
-                        curr_idx = opcoes_status.index(curr_st) if curr_st in opcoes_status else 0
-                        novo_st = st.selectbox("Status", opcoes_status, index=curr_idx, key=f"sel_st_{item['id']}_{idx}")
-                    with col_st2:
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        if st.button("Salvar", key=f"btn_save_st_{item['id']}_{idx}", use_container_width=True):
-                            sugestoes[idx]["status"] = novo_st
-                            salvar_sugestoes(sugestoes)
-                            st.success("Status atualizado!")
-                            st.rerun()
-
-    def render_action_buttons(prefix):
-        st.markdown('<br>', unsafe_allow_html=True)
-        btn1, btn2, btn3, btn4, btn5, btn6 = st.columns([1, 1.2, 0.9, 1.1, 1.1, 1.2])
-        
-        # 1. Salvar no Sistema
-        if btn1.button("💾 Salvar", use_container_width=True, key=f"btn_salvar_{prefix}"):
-            import sqlite3, json, os, datetime
-            DB_PATH = os.path.join(os.path.dirname(__file__), "banco_laudos.sqlite")
-            dados = {}
-            for k, v in st.session_state.items():
-                if k not in ['autenticado', 'preview_open']:
-                    try:
-                        if isinstance(v, (datetime.date, datetime.time)):
-                            dados[k] = v.isoformat()
-                        else:
-                            dados[k] = v
-                    except: pass
-            if 'vitimas' in st.session_state: dados['vitimas'] = st.session_state['vitimas']
-            if 'vestigios' in st.session_state: dados['vestigios'] = st.session_state['vestigios']
-            if 'fotos' in st.session_state: dados['fotos'] = st.session_state['fotos']
-            if 'quesitos_list' in st.session_state: dados['quesitos_list'] = st.session_state['quesitos_list']
-
-            try:
-                conn = sqlite3.connect(DB_PATH)
-                c = conn.cursor()
-                mob_id = dados.get('ocorrencia', f"laudo_{len(dados)}")
-                now_str = datetime.datetime.now().isoformat()
-                c.execute('INSERT OR REPLACE INTO laudos (mobile_id, data_sincronizacao, dados_json) VALUES (?, ?, ?)',
-                          (mob_id, now_str, json.dumps(dados)))
-                conn.commit()
-                conn.close()
-                st.success("✅ Dados salvos com sucesso no sistema!")
-            except Exception as e:
-                st.error(f"Erro ao salvar: {e}")
-
-        # 2. Gerar Laudo
-        gerar_clicked = btn2.button("🚀 Gerar Laudo (.docx)", type="primary", use_container_width=True, key=f"btn_gerar_{prefix}")
-        
-        # 3. Limpar Formulário
-        if btn3.button("🗑️ Limpar", use_container_width=True, key=f"btn_limpar_{prefix}"):
-            for k in list(st.session_state.keys()):
-                if k not in ['autenticado']:
-                    del st.session_state[k]
-            st.rerun()
-            
-        # 4. Buscar Ocorrências (Modal)
-        if btn4.button("🔍 Buscar", use_container_width=True, key=f"btn_sync_{prefix}"):
-            modal_ocorrencias()
-
-        # 5. Auditoria de Inconsistências (Checkup do Laudo)
-        if btn5.button("🔍 Auditoria", use_container_width=True, key=f"btn_audit_{prefix}"):
-            modal_auditoria_inconsistencias()
-
-        # 6. Sugestões & Melhorias
-        if btn6.button("💡 Sugestões", use_container_width=True, key=f"btn_sugestoes_{prefix}"):
-            modal_sugestoes()
-            
-        return gerar_clicked
-
-
-    
-    
-    
     gerar_top = render_action_buttons("top")
     st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
 
@@ -1501,7 +1500,7 @@ def modal_sugestoes():
         st.markdown(
             '<div class="section-title">📋 &nbsp; Da Ocorrência</div>', unsafe_allow_html=True)
         with st.container():
-            
+
             col_tools1, col_tools2 = st.columns(2)
             with col_tools1:
                 with st.expander("📝 Bloco de Notas / Rascunho Livre (IA)", expanded=False):
@@ -1527,7 +1526,7 @@ def modal_sugestoes():
                                         if dados_parsed.get(k_json):
                                             st.session_state[k_state] = dados_parsed[k_json]
                                             count_fields += 1
-                                    
+
                                     if dados_parsed.get("vitima_nome") or dados_parsed.get("vitima_vestes") or dados_parsed.get("vitima_lesoes"):
                                         if "vitimas" in st.session_state and st.session_state["vitimas"]:
                                             v0 = st.session_state["vitimas"][0]
@@ -1536,7 +1535,7 @@ def modal_sugestoes():
                                             if dados_parsed.get("vitima_posicao"): v0["posicao"] = dados_parsed["vitima_posicao"]
                                             if dados_parsed.get("vitima_lesoes"): v0["lesoes"] = [dados_parsed["vitima_lesoes"]]
                                             count_fields += 1
-                                    
+
                                     st.success(f"✅ Sucesso! {count_fields} campo(s) preenchido(s):")
                                     st.json(dados_parsed)
                                     st.rerun()
@@ -1547,7 +1546,7 @@ def modal_sugestoes():
                         st.info("✨ Gemini Vision: Extração inteligente de Delegacia, Delegado, Ocorrência, Requisição e Quesitos.")
                     else:
                         st.caption("💡 Para extração com IA Gemini Vision, verifique o arquivo CHAVE.txt.")
-                    
+
                     req_file = st.file_uploader("Carregar Requisição (PDF / Imagem)", type=["pdf", "png", "jpg", "jpeg", "bmp", "tiff"], key="req_file_input")
                     if req_file is not None:
                         file_bytes = req_file.read()
@@ -2248,7 +2247,7 @@ def modal_sugestoes():
 
             if st.session_state["fotos"]:
                 st.markdown("<hr style='margin:16px 0; border-color:#e2e8f0;'>", unsafe_allow_html=True)
-                
+
                 c_gal_hdr, c_gal_btn = st.columns([2, 1])
                 with c_gal_hdr:
                     st.markdown(f"##### 🖼️ Galeria de Fotografias ({len(st.session_state['fotos'])} item(ns))")
@@ -2720,5 +2719,5 @@ def modal_sugestoes():
                 file_name=st.session_state.docx_filename,
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 use_container_width=True,
-    
+
             )
