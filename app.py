@@ -2272,6 +2272,51 @@ with main:
                     "iso_alteracao_ui", "")
 
             st.divider()
+            
+            tpl_isolamento_ui = {
+                "1": "No momento da chegada da equipe pericial, o local encontrava-se devidamente isolado por meio de {meio_de_isolamento}, impedindo o acesso de pessoas não autorizadas ao perímetro de interesse. Constatou-se a integral preservação do estado das coisas, não havendo quaisquer indícios de alteração, supressão, contaminação ou acréscimo de vestígios. Tais condições atestam o fiel cumprimento ao Art. 6º, inciso I, e Art. 169 do Código de Processo Penal, garantindo a idoneidade da etapa de isolamento da Cadeia de Custódia (Art. 158-A, § 2º) e conferindo total confiabilidade ao levantamento pericial e à dinâmica interpretada.",
+                "2": "O local encontrava-se devidamente isolado por meio de {meio_de_isolamento}, contudo observou-se que a preservação do ambiente foi apenas parcial, em virtude de {descrever_alteracao}. Ressalta-se que a alteração constatada foi devidamente sopesada durante os exames periciais, não comprometendo a identificação dos vestígios essenciais.",
+                "3": "O local dos fatos encontrava-se parcialmente isolado, observando-se {descrever_falha_isolamento}. No entanto, constatou-se a preservação do estado das coisas e da cena do crime, permitindo a arrecadação idônea dos vestígios materiais sem prejuízo à cadeia de custódia.",
+                "4": "O local dos fatos encontrava-se parcialmente isolado, com delimitação perimetral incipiente e insuficiente para {descrever_falha_isolamento}. Concomitantemente, verificou-se a preservação apenas parcial do ambiente, evidenciada por {descrever_alteracao}. Esta conjugação de ineficiência no resguardo do perímetro e a consequente alteração do estado original mitigam a robustez da análise da dinâmica delitiva.",
+                "5": "No momento dos exames, constatou-se que o local encontrava-se não isolado e não preservado (devassado), caracterizado por {descrever_alteracao}. A ausência de contenção perimetral e a intensa circulação de populares acarretaram a alteração do estado original das coisas, limitando o alcance da interpretação pericial."
+            }
+
+            iso_key = iso_estado[0] if iso_estado else "1"
+            meio_str = st.session_state.get("iso_meio") or "[meio de isolamento]"
+            alt_str = st.session_state.get("iso_alteracao") or "[descrever alteração]"
+            falha_str = st.session_state.get("iso_falha") or "[descrever falha de isolamento]"
+
+            sugerido = tpl_isolamento_ui.get(iso_key, "")
+            sugerido = sugerido.replace("{meio_de_isolamento}", meio_str)
+            sugerido = sugerido.replace("{descrever_alteracao}", alt_str)
+            sugerido = sugerido.replace("{descrever_falha_isolamento}", falha_str)
+
+            # Auto-update custom text if state changed or first load
+            last_iso_key = st.session_state.get("last_iso_key", "")
+            if last_iso_key != iso_key or "iso_texto_personalizado" not in st.session_state or not st.session_state["iso_texto_personalizado"]:
+                st.session_state["iso_texto_personalizado"] = sugerido
+                st.session_state["last_iso_key"] = iso_key
+
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+            col_tx1, col_tx2 = st.columns([3, 1])
+            with col_tx1:
+                st.markdown("<label style='font-size:13px; font-weight:600; color:#1e293b;'>📄 Minuta / Texto do Isolamento e Preservação (Visualização e Edição Livre)</label>", unsafe_allow_html=True)
+            with col_tx2:
+                if st.button("🔄 Restaurar Sugestão", key="btn_reset_iso_text", use_container_width=True):
+                    st.session_state["iso_texto_personalizado"] = sugerido
+                    st.rerun()
+
+            iso_custom = st.text_area(
+                "Texto sobre Isolamento e Preservação",
+                value=st.session_state.get("iso_texto_personalizado", sugerido),
+                height=130,
+                key="iso_texto_ui",
+                label_visibility="collapsed",
+                help="Visualize e edite livremente o texto que constará no laudo oficial."
+            )
+            st.session_state["iso_texto_personalizado"] = iso_custom
+
+            st.divider()
             st.subheader("c) Laudo de Necropsia (IML)")
             c_iml1, c_iml2 = st.columns(2)
             with c_iml1:
