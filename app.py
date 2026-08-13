@@ -51,15 +51,21 @@ def v(val): return str(val).strip() if str(val).strip() else "________"
 # GEMINI VISION & IA HELPERS
 # ═══════════════════════════════════════════════════════════
 def get_gemini_api_key():
-    """Recupera a chave de API do Gemini de secrets, ambiente ou session_state."""
+    """Recupera a chave de API do Gemini de CHAVE.txt, secrets, ambiente ou session_state."""
+    for fname in ["CHAVE.txt", "chave.txt", "CHAVE.TXT"]:
+        fpath = os.path.join(os.path.dirname(__file__), fname)
+        if os.path.exists(fpath):
+            try:
+                with open(fpath, "r", encoding="utf-8", errors="ignore") as fp:
+                    k = fp.read().strip()
+                    if k: return k
+            except Exception: pass
     try:
         if "GEMINI_API_KEY" in st.secrets and st.secrets["GEMINI_API_KEY"]:
             return st.secrets["GEMINI_API_KEY"]
-    except Exception:
-        pass
+    except Exception: pass
     env_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-    if env_key:
-        return env_key
+    if env_key: return env_key
     if st.session_state.get("user_gemini_key"):
         return st.session_state.get("user_gemini_key")
     if st.session_state.get("gemini_api_key_input"):
@@ -1445,9 +1451,15 @@ with main:
             pavimento = cr3.text_input(
                 "Pavimento", placeholder="Ex: Asfalto", key="pavimento")
 
-            delimitacoes = st.text_area("Delimitações do local",
-                                        placeholder="Descreva os limites físicos do local periciado...",
-                                        key="delimitacoes", height=70)
+            cdel1, cdel2 = st.columns([4, 1])
+            with cdel1:
+                delimitacoes = st.text_area("Delimitações do local",
+                                            placeholder="Descreva os limites físicos do local periciado...",
+                                            key="delimitacoes", height=70)
+            with cdel2:
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("✨ Polir IA", key="btn_polir_delimitacoes", use_container_width=True, help="Polir redação das delimitações com IA"):
+                    modal_polir_redacao("delimitacoes", "Delimitações do Local")
 
             cl1, cl2, cl3, cl4 = st.columns(4)
             iso_opts = ["", "Preservado e Isolado", "Parcialmente Preservado e Isolado",
@@ -2317,6 +2329,9 @@ with main:
                 "vestigios_detalhes": vestigios_detalhes,
                 "quesitos": quesitos_final_str,
                 "quesitos_respostas": quesitos_final_str,
+                "dinamica_fatos": st.session_state.get("dinamica_fatos", "") or "Dinâmica não descrita.",
+                "dinâmica_dos_fatos": st.session_state.get("dinamica_fatos", "") or "Dinâmica não descrita.",
+                "dinamica": st.session_state.get("dinamica_fatos", "") or "Dinâmica não descrita.",
             }
             VARS.update(individual_vars)
             VARS["tipo_local"] = tipo_local_val
