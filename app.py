@@ -44,6 +44,51 @@ def data_extenso(d):
 def data_simples(d): return d.strftime("%d/%m/%Y")
 def v(val): return str(val).strip() if str(val).strip() else "________"
 
+
+# ═══════════════════════════════════════════════════════════
+# MÓDULO DE INTEGRAÇÃO GOOGLE GEMINI AI
+# ═══════════════════════════════════════════════════════════
+def get_gemini_api_key():
+    try:
+        if "GEMINI_API_KEY" in st.secrets: return st.secrets["GEMINI_API_KEY"]
+    except: pass
+    if os.environ.get("GEMINI_API_KEY"): return os.environ.get("GEMINI_API_KEY")
+    return st.session_state.get("user_gemini_key", "")
+
+def call_gemini_text(prompt):
+    key = get_gemini_api_key()
+    if not key: return None, "Chave GEMINI_API_KEY não configurada."
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=key)
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        resp = model.generate_content(prompt)
+        return resp.text, None
+    except Exception as e: return None, str(e)
+
+def call_gemini_vision(prompt, image_bytes, mime_type="image/jpeg"):
+    key = get_gemini_api_key()
+    if not key: return None, "Chave GEMINI_API_KEY não configurada."
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=key)
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        contents = [prompt, {"mime_type": mime_type, "data": image_bytes}]
+        resp = model.generate_content(contents)
+        return resp.text, None
+    except Exception as e: return None, str(e)
+
+@st.dialog("🔍 Auditoria de Inconsistências (IA Gemini)")
+def modal_auditoria_ia():
+    st.markdown("Verificação inteligente de contradições e dados do laudo:")
+    dados_resumo = {k: v for k, v in st.session_state.items() if k not in ['autenticado', 'preview_open', 'user_gemini_key']}
+    prompt = f"Você é um perito criminal sênior. Analise o seguinte formulário de laudo pericial de local de morte violenta e identifique possíveis contradições, campos em branco críticos ou erros de coerência criminalística:\n{dados_resumo}\nForneça o resultado em tópicos claros e objetivos em português do Brasil."
+    with st.spinner("Analisando laudo com a IA Gemini..."):
+        res, err = call_gemini_text(prompt)
+        if err: st.error(f"Erro na auditoria: {err}")
+        else: st.markdown(res)
+
+
 def get_logo_base64():
     import base64
     logo_path = os.path.join(os.path.dirname(__file__), "logo_pericia.png")
@@ -747,17 +792,19 @@ with main:
 
     
     
-    @st.dialog("🩸 Guia Visual de Padrões de Manchas de Sangue")
+    @st.dialog("🩸 Guia Visual de Manchas de Sangue")
     def modal_guia_sangue():
         st.markdown("Utilize as imagens de referência abaixo para guiar a identificação do tipo de mancha de sangue encontrada:")
         img_dir = os.path.join(os.path.dirname(__file__), "vestigio sangue")
         if os.path.exists(img_dir):
-            files = [os.path.join(img_dir, f) for f in os.listdir(img_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+            files = sorted([os.path.join(img_dir, f) for f in os.listdir(img_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))])
             if files:
                 cols = st.columns(2)
                 for idx, img_p in enumerate(files):
                     with cols[idx % 2]:
                         st.image(img_p, use_container_width=True, caption=f"Padrão Referência #{idx+1}")
+            else:
+                st.warning("Nenhuma imagem encontrada na pasta 'vestigio sangue'.")
         else:
             st.info("Pasta 'vestigio sangue' não localizada.")
 
@@ -810,9 +857,17 @@ with main:
         # 4. Sincronizar (Modal)
         if btn4.button("☁️ Sincronizar App", use_container_width=True, key=f"btn_sync_{prefix}"):
             modal_ocorrencias()
+        if prefix == "top" and st.button("🔍 Auditoria IA", key="btn_audit_top"):
+            modal_auditoria_ia()
             
         return gerar_clicked
 
+
+    
+    with st.expander("⚙️ Configurações da IA Gemini (Opcional)", expanded=False):
+        st.text_input("Chave API do Gemini (AI Studio)", type="password", key="user_gemini_key", help="Caso não configurada nos segredos do servidor, insira sua chave da API Gemini aqui.")
+        if get_gemini_api_key(): st.success("✅ Chave Gemini ativa!")
+        else: st.info("ℹ️ Cole sua chave API gratuita do Google AI Studio para ativar legendas e redação automática.")
 
     gerar_top = render_action_buttons("top")
     st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
@@ -1099,7 +1154,9 @@ with main:
                 vest["tipo"] = st.selectbox(
                     "Tipo de Vestígio", tipo_opts, index=tipo_idx, key=f"vest_tipo_{i}")
 
-                if vest["tipo"] == "Manchas de Sangue":
+                if vest["tipo"] in ["Manchas de Sangue", "Mancha de Sangue"]:
+                    if st.button("🩸 Abrir Guia de Manchas de Sangue", key=f"btn_guia_sangue_{i}"):
+                        modal_guia_sangue()
                     c_cat, c_sub = st.columns(2)
                     cat_opts = [""] + list(manchas_dict.keys())
                     cat_idx = cat_opts.index(vest.get("categoria", "")) if vest.get(
