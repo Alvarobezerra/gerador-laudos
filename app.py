@@ -44,6 +44,17 @@ def data_extenso(d):
 def data_simples(d): return d.strftime("%d/%m/%Y")
 def v(val): return str(val).strip() if str(val).strip() else "________"
 
+def get_logo_base64():
+    import base64
+    logo_path = os.path.join(os.path.dirname(__file__), "logo_pericia.png")
+    if os.path.exists(logo_path):
+        try:
+            with open(logo_path, "rb") as f:
+                return base64.b64encode(f.read()).decode("utf-8")
+        except Exception:
+            return ""
+    return ""
+
 def ler_requisicao_pericial(file_bytes, file_name, file_type=""):
     """
     Extrai texto e campos (Delegacia, Delegado, Ocorrência, Requisição, Quesitos)
@@ -131,12 +142,12 @@ def ler_requisicao_pericial(file_bytes, file_name, file_type=""):
             dados["delegado"] = m_aut.group(1).strip()
 
         # Extrai Ocorrência / BO
-        m_oco = re.search(r'(?:OCORRÊNCIA|OCORRENCIA|BOLETIM DE OCORRÊNCIA|BO|Nº OCORRÊNCIA|N° OCORRÊNCIA)[\s\:\.\º\°]*([0-9A-Za-z\/\-\.]+)', extracted_text, re.IGNORECASE)
+        m_oco = re.search(r'(?:OCORRÊNCIA|OCORRENCIA|BOLETIM DE OCORRÊNCIA|BO)[\s\:\.\º\°]*(?:N[º°\.\:]*)?[\s\:\.\º\°]*([0-9A-Za-z\/\-\.]{3,})', extracted_text, re.IGNORECASE)
         if m_oco:
             dados["ocorrencia"] = m_oco.group(1).strip()
 
         # Extrai Requisição
-        m_req = re.search(r'(?:REQUISIÇÃO|REQUISICAO|REQ\.?)[\s\:\.\º\°]*([0-9A-Za-z\/\-\.]+)', extracted_text, re.IGNORECASE)
+        m_req = re.search(r'(?:REQUISIÇÃO|REQUISICAO|REQ\.?)[\s\:\.\º\°]*(?:N[º°\.\:]*)?[\s\:\.\º\°]*([0-9A-Za-z\/\-\.]{3,})', extracted_text, re.IGNORECASE)
         if m_req:
             dados["requisicao"] = m_req.group(1).strip()
 
@@ -791,6 +802,34 @@ with main:
         st.markdown(
             '<div class="section-title">📋 &nbsp; Da Ocorrência</div>', unsafe_allow_html=True)
         with st.container():
+            with st.expander("📄 Leitor Automático de Requisição Pericial (PDF / Imagem)", expanded=False):
+                req_file = st.file_uploader("Carregar Requisição Pericial (PDF ou Imagem)", type=["pdf", "png", "jpg", "jpeg", "bmp", "tiff"], key="req_file_input")
+                if req_file is not None:
+                    file_bytes = req_file.read()
+                    extracted_text, dados = ler_requisicao_pericial(file_bytes, req_file.name, req_file.type)
+                    if dados:
+                        if dados.get("delegacia"):
+                            st.session_state["destino"] = dados["delegacia"]
+                        if dados.get("delegado"):
+                            del_nome = dados["delegado"]
+                            if del_nome not in st.session_state.autoridades:
+                                st.session_state.autoridades.append(del_nome)
+                            st.session_state["autoridade_sel"] = del_nome
+                        if dados.get("ocorrencia"):
+                            st.session_state["ocorrencia"] = dados["ocorrencia"]
+                        if dados.get("requisicao"):
+                            st.session_state["requisicao"] = dados["requisicao"]
+                        if dados.get("quesitos"):
+                            st.session_state["quesitos"] = dados["quesitos"]
+
+                        st.success("✅ Requisição pericial lida com sucesso! Campos preenchidos automaticamente:")
+                        st.json(dados)
+                    elif extracted_text:
+                        st.warning("⚠️ Texto extraído da requisição, mas nenhum campo de formulário reconhecido automaticamente por regex.")
+                        with st.expander("Ver Texto Extraído Completo"):
+                            st.text(extracted_text)
+                    else:
+                        st.error("❌ Não foi possível extrair texto do arquivo fornecido.")
 
             c1, c2, c3, c4 = st.columns(4)
             num_laudo = c1.text_input(
@@ -1273,6 +1312,17 @@ with main:
 
             st.session_state["inst_extra"] = st.text_area(
                 "Achados Extras / Observações do Instrumento", value=st.session_state.get("inst_extra", ""), help=placeholders_extras.get(inst_key, ""))
+
+            st.divider()
+            st.subheader("e) Quesitos e Respostas")
+            st.text_area(
+                "Quesitos formulados pela Autoridade Solicitante e Respostas da Perícia",
+                value=st.session_state.get("quesitos", ""),
+                key="quesitos",
+                height=160,
+                placeholder="Ex:\n1. Qual a causa da morte?\nResposta: Traumatismo cranioencefálico decorrente de PAF.\n\n2. Qual o instrumento ou meio que a produziu?\nResposta: Perfurocontundente.",
+                help="Estes quesitos e respostas serão mapeados para a tag {quesitos} no laudo gerado."
+            )
     st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
     with st.container():
@@ -1551,6 +1601,8 @@ with main:
                 "aut_local": st.session_state.get("autoridade_local", ""),
                 "vitimas_detalhes": vitimas_detalhes,
                 "vestigios_detalhes": vestigios_detalhes,
+                "quesitos": st.session_state.get("quesitos", "Não foram formulados quesitos específicos."),
+                "quesitos_respostas": st.session_state.get("quesitos", "Não foram formulados quesitos específicos."),
             }
             VARS.update(individual_vars)
             VARS["tipo_local"] = tipo_local_val
