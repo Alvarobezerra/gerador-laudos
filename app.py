@@ -1362,12 +1362,20 @@ def modal_sugestoes():
         titulo = st.text_input("Título / Resumo", placeholder="Ex: Ajustar layout dos cartões de vestígios", key="sug_titulo")
         autor = st.text_input("Seu Nome / Perito", value=st.session_state.get("perito", ""), placeholder="Ex: Dr. Carlos", key="sug_autor")
         descricao = st.text_area("Descrição detalhada", placeholder="Descreva com detalhes a sua sugestão ou o erro observado...", height=100, key="sug_desc")
-        
+        uploaded_imgs = st.file_uploader("📸 Anexar Imagens / Prints (Opcional)", type=["png", "jpg", "jpeg", "webp"], accept_multiple_files=True, key="sug_imgs_input")
+
         if st.button("🚀 Cadastrar Sugestão", type="primary", use_container_width=True, key="btn_cadastrar_sugestao"):
             if not titulo.strip() or not descricao.strip():
                 st.warning("⚠️ Por favor, preencha o título e a descrição da sugestão.")
             else:
-                import datetime
+                import datetime, base64
+                imgs_b64 = []
+                if uploaded_imgs:
+                    for f_img in uploaded_imgs:
+                        try:
+                            imgs_b64.append(base64.b64encode(f_img.read()).decode("utf-8"))
+                        except Exception: pass
+
                 novo_item = {
                     "id": datetime.datetime.now().strftime("%Y%m%d%H%M%S"),
                     "data": datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
@@ -1375,6 +1383,7 @@ def modal_sugestoes():
                     "titulo": titulo.strip(),
                     "autor": autor.strip() if autor.strip() else "Perito Anônimo",
                     "descricao": descricao.strip(),
+                    "imagens": imgs_b64,
                     "status": "🟡 Pendente"
                 }
                 sugestoes.insert(0, novo_item)
@@ -1394,6 +1403,18 @@ def modal_sugestoes():
                     st.markdown(f"**Tipo:** {item.get('tipo')}")
                     st.markdown(f"**Autor:** {item.get('autor')}")
                     st.markdown(f"**Descrição:**\n{item.get('descricao')}")
+                    
+                    if item.get("imagens"):
+                        st.markdown("**📸 Imagens / Prints Anexados:**")
+                        import base64
+                        cols_img = st.columns(min(len(item["imagens"]), 3))
+                        for i_idx, b64_str in enumerate(item["imagens"]):
+                            with cols_img[i_idx % 3]:
+                                try:
+                                    img_data = base64.b64decode(b64_str)
+                                    st.image(img_data, use_container_width=True, caption=f"Print #{i_idx+1}")
+                                except Exception: pass
+
                     st.markdown("---")
                     st.markdown("**⚙️ Alterar Status (Administrador):**")
                     col_st1, col_st2 = st.columns([3, 1])
@@ -1408,7 +1429,6 @@ def modal_sugestoes():
                             salvar_sugestoes(sugestoes)
                             st.success("Status atualizado!")
                             st.rerun()
-
 
     def render_action_buttons(prefix):
         st.markdown('<br>', unsafe_allow_html=True)
